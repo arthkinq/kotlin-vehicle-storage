@@ -68,6 +68,5 @@ tasks {
             attributes["Main-Class"] = application.mainClass.get()
         }
     }
-
 }
 

@@ -1,38 +1,38 @@
-package org.example.core // Предполагаемый пакет для клиентского CommandProcessor
+package org.example.core
 
 import org.example.IO.IOManager
-import org.example.IO.InputManager // Для processScriptFile
-import org.example.model.Vehicle // Модель данных
+import org.example.IO.InputManager
+import org.example.model.Vehicle
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.InvalidPathException // Для обработки ошибок пути
 
 class CommandProcessor(
-    private val apiClient: ApiClient, // Новый неблокирующий ApiClient
+    private val apiClient: ApiClient,
     private val ioManager: IOManager
 ) {
-    private val vehicleReader: VehicleReader = VehicleReader(ioManager) // Для чтения данных Vehicle
+    private val vehicleReader: VehicleReader = VehicleReader(ioManager)
 
-    // Настройки для execute_script (рекурсия)
+    // Настройки для execute_script
     private val maxRecursionDepth = 5
     private var recursionDepth = 0
-    private val executedScripts = mutableSetOf<String>() // Для отслеживания уже выполненных скриптов в текущей цепочке вызовов
+    private val executedScripts = mutableSetOf<String>()
 
-    // Список команд, известных клиенту. Обновляется с сервера.
+    // Список команд, известных клиенту
     private val listOfCommands = mutableListOf<String>()
 
     fun start() {
         ioManager.outputLine("Transport Manager Client v2.0 (NIO)")
         ioManager.outputLine("Attempting to fetch initial command list from server...")
 
-        // 1. Начальная загрузка команд (обычно команда "help")
+        // Начальная загрузка команд и help
         try {
-            val initialRequest = Request(body = listOf("help"), vehicle = null, currentCommandsList = null)
+            val initialRequest = Request(body = listOf("help"), vehicle = null, currentCommandsList = listOfCommands)
             val initialResponse = apiClient.sendRequestAndWaitForResponse(initialRequest)
 
             if (initialResponse != null) {
-                ioManager.outputLine(initialResponse.responseText) // Вывод текста (например, help-информации)
+                ioManager.outputLine(initialResponse.responseText)
 
                 val serverNewCommands = initialResponse.newCommandsList
                 if (serverNewCommands.isNotEmpty()) {
@@ -52,17 +52,15 @@ class CommandProcessor(
                     return
                 }
             } else {
-                // initialResponse is null (таймаут или критическая ошибка соединения в ApiClient)
                 ioManager.error("Failed to fetch initial command list from server (no response or timeout). Client will exit.")
                 return
             }
         } catch (e: Exception) {
             ioManager.error("Critical error during initial command fetch: ${e.message}. Client will exit.")
-            e.printStackTrace() // Для отладки
             return
         }
 
-        // 2. Основной цикл приема команд от пользователя
+        // Основной цикл приема команд от пользователя
         var continueExecution = true
         while (continueExecution) {
             ioManager.outputInline("> ")
@@ -84,12 +82,8 @@ class CommandProcessor(
                     }
                 }
                 "" -> {
-                    // Пустой ввод, ничего не делаем, ждем следующую команду
                 }
                 else -> {
-                    // Для всех остальных команд вызываем processSingleCommand
-                    // Передаем уже разделенные имя команды и аргументы (если они есть)
-                    // или можно передавать всю строку userInput, если processSingleCommand сам парсит
                     processSingleCommand(commandName, if (parts.size > 1) parts.drop(1) else emptyList())
                 }
             }
@@ -108,7 +102,6 @@ class CommandProcessor(
         }
 
         var vehicleForRequest: Vehicle? = null
-        // finalCommandBody будет состоять из имени команды (в правильном регистре с сервера) и ее аргументов
         val actualCommandNameFromServer = listOfCommands.first { it.equals(commandName, ignoreCase = true) }
         var finalCommandBody: List<String> = listOf(actualCommandNameFromServer) + args
 
@@ -117,7 +110,6 @@ class CommandProcessor(
             "add", "add_if_max", "add_if_min" -> {
                 ioManager.outputLine("Please enter data for the new vehicle:")
                 vehicleForRequest = vehicleReader.readVehicle()
-                // Для этих команд аргументы в строке не нужны, Vehicle передается отдельно
                 finalCommandBody = listOf(actualCommandNameFromServer)
             }
             "update_id" -> {

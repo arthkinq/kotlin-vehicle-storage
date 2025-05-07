@@ -36,7 +36,7 @@ class ApiServer(
         ConcurrentHashMap<SocketChannel, ByteBuffer>() // Хранит ByteBuffer, который ЕЩЕ НЕ отправлен
 
     @Volatile
-    private var running = true // Флаг для основного цикла сервера
+    private var running = false // Флаг для основного цикла сервера
 
     fun startServer(port: Int = DEFAULT_PORT) {
         logger.log(Level.INFO, "NIO TCP Server is preparing to start on port $port.")
@@ -145,7 +145,7 @@ class ApiServer(
         }
 
         val readBuffer = ByteBuffer.allocate(READ_BUFFER_CAPACITY)
-        var numRead: Int
+        val numRead: Int
 
         try {
             numRead = clientChannel.read(readBuffer)
@@ -173,9 +173,6 @@ class ApiServer(
                             Level.FINER, "Length read: ${readState.expectedLength} for ${clientChannel.remoteAddress}"
                         )
                     } else {
-                        // Не всю длину прочитали, а буфер readBuffer закончился.
-                        // Оставшиеся байты для длины будут в readState.lengthBuffer.
-                        // Выходим и ждем следующего OP_READ.
                         break
                     }
                 }
@@ -183,7 +180,7 @@ class ApiServer(
                 if (readState.isLengthRead) { // Проверяем еще раз, так как readLengthFromBuffer мог изменить состояние
                     if (readState.readObjectBytesFromBuffer(readBuffer)) {
                         logger.log(Level.FINER, "Object bytes read for ${clientChannel.remoteAddress}")
-                        val request = readState.deserializeObject<Request>() // Десериализуем POJO
+                        val request = readState.deserializeObject<Request>() // Десериализуем
                         if (request != null) {
                             logger.log(
                                 Level.INFO, "Received request from ${clientChannel.remoteAddress}: command='${
@@ -191,10 +188,10 @@ class ApiServer(
                                 }'"
                             )
 
-                            val responsePojo = commandProcessor.processCommand(request.body, request.vehicle)
-                            responsePojo.updateCommands(commandProcessor.getAvailableCommandNames())
+                            val response = commandProcessor.processCommand(request.body, request.vehicle)
+                            response.updateCommands(commandProcessor.getAvailableCommandNames())
 
-                            val responseBufferToSend = SerializationUtils.objectToByteBuffer(responsePojo)
+                            val responseBufferToSend = SerializationUtils.objectToByteBuffer(response)
 
                             // Попытка неблокирующей записи или регистрация на OP_WRITE
                             try {

@@ -10,9 +10,9 @@ fun main() {
         ConsoleInputManager(),
         ConsoleOutputManager()
     )
-    val apiClient = ApiClient(ioManager) // Возможно, передача хоста/порта, если не дефолтные
+    val apiClient = ApiClient(ioManager)
     val commandProcessor =
-        CommandProcessor(apiClient, ioManager) // Уточните пакет для клиентского CommandProcessor
+        CommandProcessor(apiClient, ioManager)
 
     try {
         commandProcessor.start()
@@ -20,7 +20,7 @@ fun main() {
         ioManager.error("An unexpected error occurred in the client: ${e.message}")
         e.printStackTrace()
     } finally {
-        apiClient.close() // <--- ВАЖНО
+        apiClient.close()
         ioManager.outputLine("Client application finished.")
     }
 }

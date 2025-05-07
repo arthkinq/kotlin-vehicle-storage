@@ -1,5 +1,6 @@
 package org.example.core
 
+
 import org.example.IO.IOManager
 import org.example.model.*
 import java.util.*
@@ -31,8 +32,7 @@ class VehicleReader(private var ioManager: IOManager) {
                 }
             } catch (e: IllegalArgumentException) {
                 ioManager.error("Validation error: ${e.message}")
-            }
-            catch (e: InputMismatchException) {
+            } catch (e: InputMismatchException) {
                 ioManager.error("Format error: ${e.message}")
             }
         } else {
@@ -142,10 +142,6 @@ class VehicleReader(private var ioManager: IOManager) {
         }
     }
 
-    fun getIOManager(): IOManager = ioManager
-    fun setIOManager(newIO: IOManager) {
-        this.ioManager = newIO
-    }
     fun readVehicleFromScript(data: List<String>): Vehicle {
         return Vehicle(
             id = idCounter.getAndIncrement(),
