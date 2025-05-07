@@ -23,12 +23,12 @@ class ShowCommand : Command(
         if (collectionManager.isEmpty()) {
             return Response("Collection is empty.")
         } else {
-            val stringBuilder = StringBuilder("Vehicles in collection:\n")
-            collectionManager.getAll().forEach { item -> // Используем forEachIndexed для нумерации
-                stringBuilder.append("${item.toString()}\n") // Добавляем toString() каждого элемента и перенос строки
-            }
-
-
+            val stringBuilder = StringBuilder("Vehicles in collection (sorted by name):\n")
+            collectionManager.getAll()
+                .sortedBy { it.name }
+                .forEach { item ->
+                    stringBuilder.append("$item\n")
+                }
             return Response(stringBuilder.toString())
         }
     }

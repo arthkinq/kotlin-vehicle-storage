@@ -4,3 +4,4 @@ id,name,coordinatesX,coordinatesY,creationDate,enginePower,distanceTravelled,typ
 4,FastSkimmer,50,70.3,1746611825204,80.0,2000.0,HOVERBOARD,KEROSENE
 5,AnotherShip,300,400.0,1746611825207,120.0,30000.0,BOAT,NUCLEAR
 6,DeliveryDrone,5,8.0,1746611825210,50.0,100.0,HOVERBOARD,ALCOHOL
+7,newcarrdyew,100,10.0,1746620116669,10000.0,123.0,,

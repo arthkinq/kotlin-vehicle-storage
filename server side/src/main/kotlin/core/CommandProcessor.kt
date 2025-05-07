@@ -1,28 +1,34 @@
 package org.example.core
 
-import org.example.IO.IOManager
+import org.example.IO.IOManager // Используется для ioManagerForLogging
 import org.example.commands.*
-import org.example.model.Vehicle
+import org.example.model.Vehicle // Модель данных
 
 class CommandProcessor(
-    private val ioManagerForLogging: IOManager,
-    fileName: String
+    private val ioManagerForLogging: IOManager, // Для логирования ошибок и информации на сервере
+    fileName: String // Имя файла для CollectionManager
 ) {
 
-    private val maxRecursionDepth = 5
-    private var recursionDepth = 0
-    private val executedScripts =
-        mutableSetOf<String>()
+    // Рекурсия для execute_script обрабатывается на стороне клиента.
+    // Если бы execute_script выполнялся на сервере (например, скрипт лежит на сервере),
+    // то эти поля были бы здесь актуальны. В текущей архитектуре они не используются сервером.
+    // private val maxRecursionDepth = 5
+    // private var recursionDepth = 0
+    // private val executedScripts = mutableSetOf<String>()
 
-    private var commandsList: Map<String, CommandInterface>
-    val collectionManager = CollectionManager(fileName)
+    private val commandsList: Map<String, CommandInterface>
+    val collectionManager = CollectionManager(fileName) // Управляет коллекцией
 
     init {
+        // Инициализация CollectionManager происходит при его создании (загрузка из файла)
         commandsList = loadCommandsList()
+        ioManagerForLogging.outputLine("CommandProcessor initialized. CollectionManager loaded with ${collectionManager.size()} items.")
     }
 
     private fun loadCommandsList(): Map<String, CommandInterface> {
         val mutableCommands = mutableMapOf<String, CommandInterface>()
+
+        // Команды, не требующие объекта Vehicle от клиента или работающие с аргументами
         mutableCommands["clear"] = ClearCommand()
         mutableCommands["filter_by_engine_power"] = FilterByEnginePowerCommand()
         mutableCommands["info"] = InfoCommand()
@@ -31,153 +37,70 @@ class CommandProcessor(
         mutableCommands["remove_by_id"] = RemoveByIdCommand()
         mutableCommands["remove_first"] = RemoveFirstCommand()
         mutableCommands["show"] = ShowCommand()
-        mutableCommands["save"] = SaveCommand()
 
+        // Команды, которые ожидают объект Vehicle в Request.vehicle
         mutableCommands["add"] = AddCommand()
         mutableCommands["add_if_max"] = AddIfMaxCommand()
         mutableCommands["add_if_min"] = AddIfMinCommand()
-        mutableCommands["update_id"] = UpdateIdCommand()
+        mutableCommands["update_id"] = UpdateIdCommand() // Также ожидает ID в аргументах
 
-        mutableCommands["help"] = HelpCommand(mutableCommands.toMap())
+        // HelpCommand передает себе текущий список команд для отображения
+        mutableCommands["help"] =
+            HelpCommand(mutableCommands.toMap()) // Передаем копию, чтобы избежать проблем с изменением
 
-        return mutableCommands.toMap()
+        ioManagerForLogging.outputLine("Available commands loaded: ${mutableCommands.keys.joinToString(", ")}")
+        return mutableCommands.toMap() // Возвращаем неизменяемую карту
     }
 
+    /**
+     * Обрабатывает команду, полученную от клиента.
+     * @param commandBody Список строк, где первый элемент - имя команды, остальные - аргументы.
+     * @param vehicleFromRequest Объект Vehicle, если команда его требует (например, add, update_id).
+     * @return Объект Response с результатом выполнения команды.
+     */
     fun processCommand(commandBody: List<String>, vehicleFromRequest: Vehicle?): Response {
         if (commandBody.isEmpty()) {
-            return Response("Error: Empty command received.")
+            ioManagerForLogging.error("CommandProcessor: Received empty command body.")
+            return Response("Error: Empty command received by server.")
         }
-        val commandName = commandBody[0]
-        val commandArgs = commandBody.drop(1)
 
-        val command = commandsList[commandName] ?: run {
-            return Response("Unknown command: $commandName")
+        val commandName = commandBody[0]
+        val commandArgs = commandBody.drop(1) // Остальные элементы - аргументы
+
+        ioManagerForLogging.outputLine("CommandProcessor: Processing command '$commandName' with args: $commandArgs")
+        if (vehicleFromRequest != null) {
+            ioManagerForLogging.outputLine("CommandProcessor: Vehicle data received: $vehicleFromRequest")
         }
+
+
+        val command = commandsList[commandName]
+            ?: run {
+                ioManagerForLogging.error("CommandProcessor: Unknown command '$commandName'.")
+                return Response("Error: Unknown command '$commandName' on server.")
+            }
+
         return try {
+            // Выполнение команды
+            // ioManagerForLogging передается в команду, если ей нужно что-то логировать или выводить на сервере
+            // (например, команда save может сообщить о результате сохранения в консоль сервера)
             command.execute(
                 args = commandArgs,
-                vehicle = vehicleFromRequest,
                 collectionManager = collectionManager,
-                ioManager = ioManagerForLogging
+                ioManager = ioManagerForLogging, // Для логирования внутри команды
+                vehicle = vehicleFromRequest     // Передаем объект Vehicle
             )
         } catch (e: Exception) {
-            ioManagerForLogging.error("Error executing command '$commandName': ${e.message}")
-            Response("Error executing command '$commandName' on server")
+            // Перехватываем любые неожиданные ошибки при выполнении команды
+            ioManagerForLogging.error("CommandProcessor: Critical error executing command '$commandName': ${e.message}\n${e.stackTraceToString()}")
+            Response("Error: An unexpected server error occurred while executing command '$commandName'.")
         }
     }
 
+    /**
+     * Возвращает отсортированный список имен всех доступных команд.
+     * Используется для отправки клиенту.
+     */
     fun getAvailableCommandNames(): List<String> {
-        return commandsList.keys.toList()
+        return commandsList.keys.sorted()
     }
-
-//
-//        fun start() {
-//            while (true) {
-//                val input = ioManager.readLine().trim()
-//                when {
-//                    input.isEmpty() -> continue
-//                    else -> {
-//                        try {
-//                            val cmd = Gson().fromJson(input, CommandJSON::class.java)
-//                            if (cmd.command == "exit") {
-//                                break
-//                            }
-////                        processCommand(cmd)
-//                        } catch (e: Exception) {
-//                            println("Invalid JSON format: ${e.message}")
-//                        }
-//                    }
-//                }
-//            }
-//        }
-
-
-//    private fun executeScript(input: String) {
-//        val parts = input.split("\\s+".toRegex())
-//        if (parts.size < 2) {
-//            ioManager.error("Syntax: execute_script <filename>")
-//            return
-//        }
-//
-//        val filename = parts[1]
-//        if (filename in executedScripts) {
-//            ioManager.error("Recursion detected: $filename")
-//            return
-//        }
-//
-//        if (recursionDepth >= maxRecursionDepth) {
-//            throw StackOverflowError("Max script recursion depth ($maxRecursionDepth) exceeded")
-//        }
-//
-//        val path = Paths.get(filename)
-//        if (!Files.exists(path)) {
-//            ioManager.error("File not found: $filename")
-//            return
-//        }
-//
-//        if (!Files.isReadable(path)) {
-//            ioManager.error("Access denied: $filename")
-//            return
-//        }
-//
-//        recursionDepth++
-//        executedScripts.add(filename)
-//        try {
-//            processScriptFile(path)
-//        } catch (e: Exception) {
-//            ioManager.error("Script error: ${e.message}")
-//        } finally {
-//            executedScripts.remove(filename)
-//            recursionDepth--
-//        }
-//    }
-//
-//    private fun processScriptFile(path: Path) {
-//        val originalInput = ioManager.getInput()
-//        val scriptInput = object : InputManager {
-//            private val reader = Files.newBufferedReader(path)
-//            override fun readLine(): String? = reader.readLine()
-//            override fun hasInput(): Boolean = reader.ready()
-//        }
-//        ioManager.setInput(scriptInput)
-//
-//        try {
-//            while (ioManager.hasNextLine()) {
-//                val line = ioManager.readLine().trim()
-//                if (line.isNotEmpty()) {
-//                    ioManager.outputLine("[Script]> $line")
-//                    when {
-//                        line.startsWith("add", ignoreCase = true) -> processAddCommandInScript()
-//                        //else -> processCommand(line)
-//                    }
-//                }
-//            }
-//        } finally {
-//            ioManager.setInput(originalInput)
-//        }
-//    }
-//
-//    private fun processAddCommandInScript() {
-//        val vehicleData = mutableListOf<String>()
-//        while (ioManager.hasNextLine() && vehicleData.size < 7) {
-//            val line = ioManager.readLine().trim()
-//            if (line.isNotEmpty()) {
-//                vehicleData.add(line)
-//            }
-//        }
-//        if (vehicleData.size == 7) {
-//            val fullCommand = "add\n${vehicleData.joinToString("\n")}"
-//            //processCommand(fullCommand)
-//        } else {
-//            ioManager.error("Неполные данные для команды add в скрипте")
-//        }
-//    }
-//
-//    fun getCommands(): Map<String, Command> {
-//        return commandsList
-//    }
-//
-//    fun setCommands(com: Map<String, Command>) {
-//        commandsList = com
-//    }
 }
