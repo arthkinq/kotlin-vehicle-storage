@@ -37,10 +37,10 @@ class ApiClient(
 
     private fun inputStreamHandler(clientSocket: SocketChannel) {
         val objectInputStream = ObjectInputStream(clientSocket.socket().getInputStream())
-        val response = objectInputStream.readObject() as Response
+        val response = objectInputStream.readObject() as Response // <-- POTENTIAL PROBLEM SPOT
         newCommandsList.addAll(response.newCommandsList)
-        ioManager.outputLine(response.responseText)
-        clientSocket.close()
+        ioManager.outputLine(response.responseText) // This would print the help text
+        clientSocket.close() // Closes socket
     }
 
     fun returnNewCommands(): MutableList<String> {

@@ -11,12 +11,13 @@ fun main() {
         ConsoleInputManager(),
         ConsoleOutputManager()
     )
+
     val collectionFileName = "Collection.csv"
     val networkCommandProcessor = CommandProcessor(serverIoManager, collectionFileName)
 
 
     Thread {
-        ApiServer(networkCommandProcessor, serverIoManager).startServer() // Передаем CommandProcessor и IOManager
+        ApiServer(networkCommandProcessor, serverIoManager).startServer()
     }.start()
-    println("Server started. Type 'exitAdmin' in this console to stop the server.")
+    serverIoManager.outputLine("Server started. Type 'exitAdmin' in this console to stop the server")
 }

@@ -2,30 +2,20 @@ package org.example.core
 
 import org.example.IO.IOManager
 import org.example.commands.*
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import com.google.gson.Gson
-import org.example.IO.InputManager
 import org.example.model.Vehicle
-
-data class CommandJSON(
-    val command: String,
-    val args: List<String>
-)
 
 class CommandProcessor(
     private val ioManagerForLogging: IOManager,
     fileName: String
 ) {
+
     private val maxRecursionDepth = 5
     private var recursionDepth = 0
     private val executedScripts =
-        mutableSetOf<String>() // protection against recursion & may be a file reading in the file
+        mutableSetOf<String>()
 
     private var commandsList: Map<String, CommandInterface>
     val collectionManager = CollectionManager(fileName)
-    private val vehicleReaderForServerLogic = VehicleReader(ioManagerForLogging)
 
     init {
         commandsList = loadCommandsList()
@@ -33,7 +23,6 @@ class CommandProcessor(
 
     private fun loadCommandsList(): Map<String, CommandInterface> {
         val mutableCommands = mutableMapOf<String, CommandInterface>()
-        mutableCommands["add"] = AddCommand() // AddCommand должен брать Vehicle из Request
         mutableCommands["clear"] = ClearCommand()
         mutableCommands["filter_by_engine_power"] = FilterByEnginePowerCommand()
         mutableCommands["info"] = InfoCommand()
@@ -44,10 +33,10 @@ class CommandProcessor(
         mutableCommands["show"] = ShowCommand()
         mutableCommands["save"] = SaveCommand()
 
-        mutableCommands["add_if_max"] = AddIfMaxCommand(vehicleReaderForServerLogic)
-        mutableCommands["add_if_min"] = AddIfMinCommand(vehicleReaderForServerLogic)
-        mutableCommands["update_id"] = UpdateIdCommand(vehicleReaderForServerLogic)
-
+        mutableCommands["add"] = AddCommand()
+        mutableCommands["add_if_max"] = AddIfMaxCommand()
+        mutableCommands["add_if_min"] = AddIfMinCommand()
+        mutableCommands["update_id"] = UpdateIdCommand()
 
         mutableCommands["help"] = HelpCommand(mutableCommands.toMap())
 
@@ -73,7 +62,7 @@ class CommandProcessor(
             )
         } catch (e: Exception) {
             ioManagerForLogging.error("Error executing command '$commandName': ${e.message}")
-            Response("Error executing command '$commandName' on server. See server logs for details.")
+            Response("Error executing command '$commandName' on server")
         }
     }
 
@@ -101,43 +90,6 @@ class CommandProcessor(
 //                }
 //            }
 //        }
-
-//    private fun loadCommandsList(): Map<String, Command> {
-//        val commands = listOf(
-//            AddCommand(),
-//            AddIfMaxCommand(VehicleReader(ioManager)),//TODO fix
-//            AddIfMinCommand(VehicleReader(ioManager)),//TODO fix
-//            ClearCommand(),
-//            FilterByEnginePowerCommand(),
-//            HelpCommand(emptyMap()),
-//            InfoCommand(),
-//            MinByNameCommand(),
-//            RemoveAnyByEnginePowerCommand(),
-//            RemoveByIdCommand(),
-//            RemoveFirstCommand(),
-//            ShowCommand(),
-//            SaveCommand(),
-//            UpdateIdCommand(VehicleReader(ioManager))//TODO fix
-//        ).associateBy { it.getName() }
-//        val help = HelpCommand(commands)
-//        val allCommands = listOf(
-//            help,
-//            AddCommand(),
-//            AddIfMaxCommand(VehicleReader(ioManager)),//TODO fix
-//            AddIfMinCommand(VehicleReader(ioManager)),//TODO fix
-//            ClearCommand(),
-//            FilterByEnginePowerCommand(),
-//            InfoCommand(),
-//            MinByNameCommand(),
-//            RemoveAnyByEnginePowerCommand(),
-//            RemoveByIdCommand(),
-//            RemoveFirstCommand(),
-//            ShowCommand(),
-//            SaveCommand(),
-//            UpdateIdCommand(VehicleReader(ioManager)),//TODO fix
-//        ).associateBy { it.getName() }
-//        return allCommands
-//    }
 
 
 //    private fun executeScript(input: String) {

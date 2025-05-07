@@ -24,7 +24,7 @@ class HelpCommand(private val commands: Map<String, CommandInterface>) : Command
             response += "${command.key} - ${command.value.getDescription()} \n"
         }
         response += "execute_script <filename>: executes a script from a file. \n"
-        response += "exit : Exits the program without saving. \n"
+        response += "exit : Exits the program without saving."
         return Response(response)
 
     }

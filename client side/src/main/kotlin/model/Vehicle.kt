@@ -1,7 +1,6 @@
 package org.example.model
-import kotlinx.serialization.Serializable
 
-@Serializable
+@kotlinx.serialization.Serializable
 data class Vehicle(
     val id: Int,
     var name: String,
@@ -11,16 +10,18 @@ data class Vehicle(
     var distanceTravelled: Double?,
     var type: VehicleType?,
     var fuelType: FuelType?
-) : Comparable<Vehicle> {
+) : Comparable<Vehicle>, java.io.Serializable {
     init {
         require(id >= 0) { "ID must be positive" }
         require(name.isNotEmpty()) { "Name cannot be empty" }
         require(enginePower > 0) { "Engine power must be positive" }
         distanceTravelled?.let { require(it > 0) { "Distance must be positive if provided" } }
     }
+
     override fun compareTo(other: Vehicle): Int {
         return this.id.compareTo(other.id)
     }
+
     /*class ByEnginePowerComporator : Comparator<Vehicle> {
         override fun compare(o1: Vehicle?, o2: Vehicle?): Int {
             return when {
@@ -35,12 +36,19 @@ data class Vehicle(
         return "Vehicle(id=$id, name='$name', coordinates=$coordinates, creationDate=$creationDate, " +
                 "enginePower=$enginePower, distanceTravelled=$distanceTravelled, type=$type, fuelType=$fuelType)"
     }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true // Проверка на ссылочное равенство
         if (other !is Vehicle) return false // Проверка на тип
         return this.id == other.id // Сравнение по id
     }
+
     override fun hashCode(): Int {
         return id.hashCode() // Хэш-код на основе id
+    }
+
+    companion object {
+        @JvmStatic // Good practice for Java interop, though not strictly needed here
+        private val serialVersionUID: Long = 1L // Or any other long value
     }
 }

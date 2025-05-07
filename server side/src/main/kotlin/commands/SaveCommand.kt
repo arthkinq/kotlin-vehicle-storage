@@ -9,7 +9,7 @@ import java.nio.file.Path
 class SaveCommand : Command(
     name = "save",
     description = "Save the collection to a file.",
-    size = 1
+    size = 0
 ) {
     override fun execute(
         args: List<String>,
@@ -17,19 +17,13 @@ class SaveCommand : Command(
         ioManager: IOManager,
         vehicle: Vehicle?
     ): Response {
-        if (!checkSizeOfArgs(args.size, size)) {
+        if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
         if (args.isEmpty()) {
             collectionManager.saveToFile()
-        } else {
-            collectionManager.saveToFile(Path.of(args[0]))
         }
 
         return Response("Data saved")
-    }
-
-    private fun checkSizeOfArgs(f: Int, s: Int): Boolean {
-        return s >= f
     }
 }

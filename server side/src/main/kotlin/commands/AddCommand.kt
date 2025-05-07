@@ -3,49 +3,37 @@ package org.example.commands
 import org.example.IO.IOManager
 import org.example.core.CollectionManager
 import org.example.core.Response
-import org.example.model.*
+import org.example.model.Vehicle
 
-class AddCommand : Command("add", "Add new vehicle to collection", 0) {
-
-    private fun createVehicleFromArgs(args: List<String>): Vehicle {
-        val id = args[0].toIntOrNull() ?: throw IllegalArgumentException("ID must be an integer")
-        val name = args[1]
-        val coordinates = Coordinates(
-            x = args[2].toIntOrNull() ?: throw IllegalArgumentException("Coordinates X must be a int"),
-            y = args[3].toFloatOrNull() ?: throw IllegalArgumentException("Coordinates Y must be a float")
-        )
-        val creationDate = System.currentTimeMillis() // Текущее время в миллисекундах
-        val enginePower = args[4].toDoubleOrNull() ?: throw IllegalArgumentException("Engine power must be a double")
-        val distanceTravelled = args[5].toDoubleOrNull()
-        val type = VehicleType.valueOf(args[6].uppercase()) // Преобразование строки в enum
-        val fuelType =
-            FuelType.valueOf(args[7].uppercase()) // Преобразование строки в enum // Можно добавить дополнительный аргумент, если нужно
-
-        return Vehicle(
-            id = id,
-            name = name,
-            coordinates = coordinates,
-            creationDate = creationDate,
-            enginePower = enginePower,
-            distanceTravelled = distanceTravelled,
-            type = type,
-            fuelType = fuelType
-        )
-    }
-
+class AddCommand : Command(
+    name = "add",
+    description = "Add new vehicle to collection",
+    size = 0
+) {
     override fun execute(
         args: List<String>,
         collectionManager: CollectionManager,
         ioManager: IOManager,
         vehicle: Vehicle?
     ): Response {
-        if (args.size == 8) {
-            val vehicle = createVehicleFromArgs(args)
-            collectionManager.addVehicle(vehicle)
-            return Response("Vehicle added with ID: ${vehicle.id}")
-        } else {
-            return Response("Not enough arguements")
+        if (!checkSizeOfArgs(args.size)) {
+            return Response("Error: '${getName()}' command takes no string arguments when a vehicle object is provided.")
         }
 
+        if (vehicle == null) {
+            ioManager.error("AddCommand: Vehicle object is null in the request.")
+            return Response("Error: Vehicle data is missing in the request for 'add' command.")
+        }
+
+        try {
+            val addedVehicle = collectionManager.addVehicle(vehicle)
+            return Response("Vehicle added successfully with ID: ${addedVehicle.id}")
+        } catch (e: IllegalArgumentException) {
+            ioManager.error("AddCommand: Error adding vehicle - ${e.message}")
+            return Response("Error adding vehicle: ${e.message}")
+        } catch (e: Exception) {
+            ioManager.error("AddCommand: Unexpected error adding vehicle - ${e.message}")
+            return Response("An unexpected error occurred while adding the vehicle.")
+        }
     }
 }

@@ -37,16 +37,19 @@ class CollectionManager(private val filename: String) {
                     warnings.add("File created with headers as it didn't exist")
                     return warnings
                 }
+
                 Files.size(path) == 0L -> {
                     createFileWithHeaders(path, requiredHeaders)
                     warnings.add("File was created with headers")
                     return warnings
                 }
+
                 !validateHeaders(path, requiredHeaders) -> {
                     backupAndFixFile(path, requiredHeaders)
                     warnings.add("Invalid headers. File was backed up and emptied")
                     return warnings
                 }
+
                 else -> parseData(path, uniqueIds, warnings, errors)
             }
             return if (errors.isEmpty()) warnings else errors
@@ -210,7 +213,7 @@ class CollectionManager(private val filename: String) {
         }
     }
 
-     fun saveToFile(path: Path) {
+    fun saveToFile(path: Path) {
         Files.newBufferedWriter(path, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING).use { writer ->
             CSVPrinter(writer, CSVFormat.DEFAULT).use { printer ->
                 printer.printRecord(
@@ -241,6 +244,7 @@ class CollectionManager(private val filename: String) {
             }
         }
     }
+
     fun addVehicle(newVehicle: Vehicle): Vehicle {
         val newId = ++lastId
         vehicles.add(
@@ -256,6 +260,20 @@ class CollectionManager(private val filename: String) {
             )
         )
         return vehicles.last()
+    }
+
+    fun updateVehicleById(idToUpdate: Int, newData: Vehicle): Boolean {
+        val existingVehicle = vehicles.find { it.id == idToUpdate }
+        if (existingVehicle != null) {
+            existingVehicle.name = newData.name
+            existingVehicle.coordinates = newData.coordinates
+            existingVehicle.enginePower = newData.enginePower
+            existingVehicle.distanceTravelled = newData.distanceTravelled
+            existingVehicle.type = newData.type
+            existingVehicle.fuelType = newData.fuelType
+            return true
+        }
+        return false // Элемент с таким ID не найден
     }
 
     fun getById(id: Int): Vehicle? {

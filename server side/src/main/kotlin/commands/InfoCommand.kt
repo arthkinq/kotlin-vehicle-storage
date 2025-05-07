@@ -24,7 +24,7 @@ class InfoCommand : Command(
             return Response("Error: Args can be size ${size}.")
         }
         var response =
-            "Info: \n Collection type: ${collectionManager.getAll()::class.simpleName} \n Amount of elements: ${collectionManager.size()}"
+            "Info: \n Collection type: ${collectionManager.getAll()::class.simpleName} \n Amount of elements: ${collectionManager.size()} \n"
 
         if (collectionManager.getAll().isNotEmpty()) {
             val readableDate = Instant.ofEpochMilli(collectionManager.getAll().first().creationDate)

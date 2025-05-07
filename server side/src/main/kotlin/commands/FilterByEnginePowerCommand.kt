@@ -19,8 +19,8 @@ class FilterByEnginePowerCommand :  FilterByCharacteristicCommand (
         if(!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
-        super.execute(listOf("enginePower", args[0]), collectionManager, ioManager, null)
-        return Response("Success")
+        return super.execute(listOf("enginePower", args[0]), collectionManager, ioManager, null)
+
 
     }
 }
