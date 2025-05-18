@@ -143,15 +143,26 @@ class VehicleReader(private var ioManager: IOManager) {
     }
 
     fun readVehicleFromScript(data: List<String>): Vehicle {
+        if (data.size < 7) throw IllegalArgumentException("Insufficient data lines for vehicle in script. Expected 7, got ${data.size}")
+        val name =
+            data[0].takeIf { it.isNotBlank() } ?: throw IllegalArgumentException("Name cannot be empty (from script)")
+        val x = data[1].toIntOrNull() ?: throw IllegalArgumentException("Invalid X coordinate in script: ${data[1]}")
+        val y = data[2].toFloatOrNull() ?: throw IllegalArgumentException("Invalid Y coordinate in script: ${data[2]}")
+        val enginePower = data[3].toDoubleOrNull()?.takeIf { it > 0 }
+            ?: throw IllegalArgumentException("Invalid or non-positive engine power in script: ${data[3]}")
+        val distanceTravelled = data[4].takeIf { it.isNotBlank() }?.toDoubleOrNull()?.takeIf { it > 0 }
+        val typeStr = data[5]
+        val type = VehicleType.entries.firstOrNull { it.name.equals(typeStr, ignoreCase = true) }
+        val fuelType = FuelType.entries.firstOrNull { it.name.equals(data[6], ignoreCase = true) }
         return Vehicle(
-            id = idCounter.getAndIncrement(),
-            name = data[0],
-            coordinates = Coordinates(data[1].toInt(), data[2].toFloat()),
-            creationDate = System.currentTimeMillis(),
-            enginePower = data[3].toDouble(),
-            distanceTravelled = data[4].toDoubleOrNull(),
-            type = VehicleType.valueOf(data[5]),
-            fuelType = FuelType.valueOf(data[6])
+            id = 0, // Server will assign ID
+            name = name,
+            coordinates = Coordinates(x, y), // Coordinates class will validate
+            creationDate = 0L, // Server will assign
+            enginePower = enginePower,
+            distanceTravelled = distanceTravelled,
+            type = type,
+            fuelType = fuelType
         )
     }
 }

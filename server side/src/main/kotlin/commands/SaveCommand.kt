@@ -20,10 +20,18 @@ class SaveCommand : Command(
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
-        if (args.isEmpty()) {
+        val errors = if (args.isEmpty()) {
             collectionManager.saveToFile()
+        } else {
+            emptyList()
         }
 
-        return Response("Data saved")
+        return if (errors.isEmpty()) {
+            Response("Data saved successfully.")
+        } else {
+            Response("Error saving data: ${errors.joinToString("; ")}")
+        }
+
+
     }
 }

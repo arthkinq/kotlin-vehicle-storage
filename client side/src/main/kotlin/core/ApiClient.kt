@@ -27,16 +27,13 @@ class ApiClient(
     }
 
     // Состояния клиента
-    @Volatile // @Volatile гарантирует, что изменения переменной видны всем потокам
     private var connected = AtomicBoolean(false)
 
     // Флаг: true, если в данный момент идет попытка подключения к серверу
-    @Volatile
     private var connectionPending = AtomicBoolean(false)
 
     // Флаг: true, пока клиент должен продолжать работу
     // Используется для управления жизненным циклом потока selector
-    @Volatile
     private var running = AtomicBoolean(true)
 
     // Очередь запросов, ожидающих отправки. ByteBuffer уже содержит кадр (длина + объект)
@@ -52,7 +49,6 @@ class ApiClient(
     private val responseLock = Object()
 
     // Флаг: true, если новый ответ от сервера получен и доступен
-    @Volatile
     private var responseAvailable = AtomicBoolean(false)
 
     // Поток для цикла selector
@@ -85,7 +81,7 @@ class ApiClient(
             return
         }
         try {
-            // Создаем или пересоздаем канал и селектор, если это необходимо (?)
+            // Создаем или пересоздаем канал и селектор, если это необходимо
             if (channel == null || channel?.isOpen == false) {
                 channel?.close() // Закрываем старый, если он был
                 channel = SocketChannel.open()
@@ -106,7 +102,7 @@ class ApiClient(
                 logger.log(Level.INFO, "ApiClient: Connected immediately to $serverHost:$serverPort.")
                 connectionPending.set(false)
                 connected.set(true)
-                currentResponseState = SerializationUtils.ObjectReaderState() // Делаем состояние для чтения ответа (?)
+                currentResponseState = SerializationUtils.ObjectReaderState() // Делаем состояние для чтения ответа
                 var initialOps = SelectionKey.OP_READ // Изначально фокусируемся на чтении (?)
                 // Синхронизация для безопасного доступа к очереди запросов (?)
                 synchronized(pendingRequests) {
@@ -212,7 +208,7 @@ class ApiClient(
                 connected.set(true)
                 logger.log(Level.INFO, "ApiClient: Successfully connected to server.")
                 ioManager.outputLine("Connected to server.")
-
+                //TODO LOAD NEW COMMANDS
                 currentResponseState =
                     SerializationUtils.ObjectReaderState() // Инициализируем состояние для чтения ответа
                 var newOps = SelectionKey.OP_READ
@@ -372,7 +368,7 @@ class ApiClient(
         // Пытаемся переподключиться через некоторое время
         if (running.get()) {
             logger.log(Level.INFO, "ApiClient: Scheduling reconnect attempt...")
-            Thread.sleep(10000)
+            //Thread.sleep(10000)
             initiateConnection()
         }
     }

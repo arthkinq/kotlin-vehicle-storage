@@ -4,12 +4,13 @@ import java.io.Serializable
 
 @kotlinx.serialization.Serializable
 data class Response(
-    var responseText: String = "Success",
+    var responseText: String = "Success"
 ) : Serializable {
     val newCommandsList = mutableListOf<String>()
     fun updateCommands(list: List<String>) {
         newCommandsList.addAll(list)
     }
+
     companion object {
         private const val serialVersionUID: Long = 1L
     }

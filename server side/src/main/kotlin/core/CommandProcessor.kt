@@ -45,17 +45,17 @@ class CommandProcessor(
         mutableCommands["show"] = ShowCommand()
 
         // Команды, которые ожидают объект Vehicle в Request.vehicle
-        mutableCommands["add"] = AddCommand()
-        mutableCommands["add_if_max"] = AddIfMaxCommand()
-        mutableCommands["add_if_min"] = AddIfMinCommand()
-        mutableCommands["update_id"] = UpdateIdCommand() // Также ожидает ID в аргументах
+        mutableCommands["add+"] = AddCommand()
+        mutableCommands["add_if_max+"] = AddIfMaxCommand()
+        mutableCommands["add_if_min+"] = AddIfMinCommand()
+        mutableCommands["update_id+"] = UpdateIdCommand() // Также ожидает ID в аргументах
 
         // HelpCommand передает себе текущий список команд для отображения
         mutableCommands["help"] =
             HelpCommand(mutableCommands.toMap()) // Передаем копию, чтобы избежать проблем с изменением
 
         logger.log(Level.INFO,"Available commands loaded: ${mutableCommands.keys.joinToString(", ")}")
-        return mutableCommands.toMap() // Возвращаем неизменяемую карту
+        return mutableCommands.toMap()
     }
 
     /**

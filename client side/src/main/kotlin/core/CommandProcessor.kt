@@ -21,9 +21,10 @@ class CommandProcessor(
 
     // Список команд, известных клиенту
     private val listOfCommands = mutableListOf<String>()
+    private val listOfCommandsThatNeedVR = mutableListOf<String>()
 
     fun start() {
-        ioManager.outputLine("Transport Manager Client v2.0 (NIO)")
+        ioManager.outputLine("Transport Manager Client")
         ioManager.outputLine("Attempting to fetch initial command list from server...")
 
         // Начальная загрузка команд и help
@@ -37,7 +38,13 @@ class CommandProcessor(
                 val serverNewCommands = initialResponse.newCommandsList
                 if (serverNewCommands.isNotEmpty()) {
                     listOfCommands.clear()
-                    listOfCommands.addAll(serverNewCommands)
+                    for (item in serverNewCommands) {
+                        if (item.lowercase().contains("+")) {
+                            listOfCommandsThatNeedVR.add(item.replace("+", ""))
+                        } else {
+                            listOfCommands.add(item)
+                        }
+                    }
                     ioManager.outputLine("Initial command list received from server.")
                 } else if (!initialResponse.responseText.lowercase().contains("error")) {
                     ioManager.outputLine("Warning: No commands received in initial response, but connection was successful. Server might have no commands configured or an issue.")
@@ -74,6 +81,7 @@ class CommandProcessor(
                     ioManager.outputLine("Exiting client application...")
                     continueExecution = false // Устанавливаем флаг для выхода из цикла
                 }
+
                 "execute_script" -> {
                     if (argument.isNotBlank()) {
                         executeScript(argument)
@@ -81,8 +89,10 @@ class CommandProcessor(
                         ioManager.outputLine("Usage: execute_script <filename>")
                     }
                 }
+
                 "" -> {
                 }
+
                 else -> {
                     processSingleCommand(commandName, if (parts.size > 1) parts.drop(1) else emptyList())
                 }
@@ -96,57 +106,25 @@ class CommandProcessor(
      */
     private fun processSingleCommand(commandName: String, args: List<String>) {
         // Проверяем, известна ли команда клиенту
-        if (!listOfCommands.any { it.equals(commandName, ignoreCase = true) }) {
+        if ((!listOfCommands.any {
+                it.equals(
+                    commandName,
+                    ignoreCase = true
+                )
+            }) || (!listOfCommandsThatNeedVR.any { it.equals(commandName, ignoreCase = true) })) {
             ioManager.outputLine("Command '$commandName' is not recognized by the client. Type 'help' for available commands.")
             return
         }
 
         var vehicleForRequest: Vehicle? = null
-        val actualCommandNameFromServer = listOfCommands.first { it.equals(commandName, ignoreCase = true) }
-        var finalCommandBody: List<String> = listOf(actualCommandNameFromServer) + args
+        var finalCommandBody: List<String> = listOf(commandName) + args
 
         // Специальная логика для команд, требующих Vehicle или интерактивного ввода аргументов
-        when (actualCommandNameFromServer) { // Используем имя команды с сервера для точности
-            "add", "add_if_max", "add_if_min" -> {
-                ioManager.outputLine("Please enter data for the new vehicle:")
-                vehicleForRequest = vehicleReader.readVehicle()
-                finalCommandBody = listOf(actualCommandNameFromServer)
-            }
-            "update_id" -> {
-                val idArg = if (args.isNotEmpty()) args[0] else {
-                    ioManager.outputLine("Usage: update_id <ID_to_update>")
-                    ioManager.outputInline("Enter ID of vehicle to update: ")
-                    val idStr = ioManager.readLine()
-                    if (idStr.isBlank()) {
-                        ioManager.error("ID is required for 'update_id' command.")
-                        return
-                    }
-                    idStr
-                }
-                val idToUpdate = idArg.toIntOrNull()
-                if (idToUpdate == null) {
-                    ioManager.error("Invalid ID format '$idArg' for 'update_id'. ID must be an integer.")
-                    return
-                }
 
-                ioManager.outputLine("Enter new data for vehicle with ID $idToUpdate:")
-                val newVehicleDataFromReader = vehicleReader.readVehicle() // Читаем все поля
-                vehicleForRequest = Vehicle( // Собираем объект для отправки
-                    id = idToUpdate, // Указываем ID обновляемого объекта
-                    name = newVehicleDataFromReader.name,
-                    coordinates = newVehicleDataFromReader.coordinates,
-                    creationDate = 0L, // Сервер должен игнорировать это и сохранить существующую дату
-                    enginePower = newVehicleDataFromReader.enginePower,
-                    distanceTravelled = newVehicleDataFromReader.distanceTravelled,
-                    type = newVehicleDataFromReader.type,
-                    fuelType = newVehicleDataFromReader.fuelType
-                )
-                // Сервер ожидает ID в аргументах команды
-                finalCommandBody = listOf(actualCommandNameFromServer, idToUpdate.toString())
-            }
-            // Другие команды, если им нужна специальная подготовка аргументов
-            // Например, "remove_by_id <id>" или "filter_by_engine_power <power>"
-            // уже будут иметь свои аргументы в 'args', и finalCommandBody сформируется корректно.
+        if (listOfCommandsThatNeedVR.contains(commandName)) {
+            ioManager.outputLine("Please enter data for the vehicle:")
+            vehicleForRequest = vehicleReader.readVehicle()
+            finalCommandBody = listOf("$commandName+") + args
         }
 
         // Создание запроса
@@ -156,7 +134,7 @@ class CommandProcessor(
             currentCommandsList = ArrayList(listOfCommands) // Передаем копию на случай, если серверу это нужно
         )
 
-        ioManager.outputLine("Sending command '$actualCommandNameFromServer' to server...")
+        ioManager.outputLine("Sending command '$commandName' to server...")
         val response = apiClient.sendRequestAndWaitForResponse(request) // Отправка и ожидание ответа
 
         if (response != null) {
@@ -173,7 +151,7 @@ class CommandProcessor(
             }
         } else {
             // response is null (таймаут или ошибка соединения/NIO в ApiClient)
-            ioManager.error("No response received from server or request timed out for command: $actualCommandNameFromServer")
+            ioManager.error("No response received from server or request timed out for command: $commandName")
         }
     }
 
@@ -225,8 +203,7 @@ class CommandProcessor(
                 var lineNumber = 0
                 while (scriptInputManager.hasInput()) { // Используем hasInput из нашего scriptInputManager
                     lineNumber++
-                    val line = scriptInputManager.readLine()?.trim()
-                    if (line == null) break // Конец файла
+                    val line = scriptInputManager.readLine()?.trim() ?: break // Конец файла
                     if (line.isEmpty() || line.startsWith("#")) { // Пропускаем пустые строки и комментарии
                         continue
                     }
@@ -247,7 +224,12 @@ class CommandProcessor(
                                 ioManager.error("[Script Error Line $lineNumber] Usage: execute_script <filename>")
                             }
                         }
-                        "add", "add_if_min", "add_if_max" -> processAddCommandInScript(commandName, scriptInputManager, lineNumber)
+
+                        "add", "add_if_min", "add_if_max" -> processAddCommandInScript(
+                            commandName,
+                            scriptInputManager,
+                            lineNumber
+                        )
                         // Другие команды обрабатываются стандартно
                         else -> processSingleCommand(commandName, if (parts.size > 1) parts.drop(1) else emptyList())
                     }
@@ -287,7 +269,8 @@ class CommandProcessor(
         if (linesRead == 7) {
             try {
                 ioManager.outputLine("[Script Processing '$commandName'] Data collected: $vehicleData")
-                val vehicleFromScript = vehicleReader.readVehicleFromScript(vehicleData) // vehicleReader должен уметь это
+                val vehicleFromScript =
+                    vehicleReader.readVehicleFromScript(vehicleData) // vehicleReader должен уметь это
                 val request = Request(
                     body = listOf(commandName), // Используем оригинальное имя команды
                     vehicle = vehicleFromScript,
