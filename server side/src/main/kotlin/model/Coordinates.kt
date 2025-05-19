@@ -14,7 +14,4 @@ data class Coordinates(
         require(y >= Float.MIN_VALUE) { "Y coordinate too small" }
     }
 
-    companion object {
-        private const val serialVersionUID: Long = 1L
-    }
 }

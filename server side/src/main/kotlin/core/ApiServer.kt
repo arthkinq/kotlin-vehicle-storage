@@ -1,21 +1,19 @@
 package org.example.core
 
 import org.example.IO.IOManager
-import org.example.core.SerializationUtils // Убедитесь, что путь правильный
 import java.io.IOException
 import java.net.InetSocketAddress
-import java.net.SocketException // Добавлен для displayServerAddresses
-import java.net.NetworkInterface // Добавлен для displayServerAddresses
-import java.net.InetAddress // Добавлен для displayServerAddresses
+import java.net.SocketException
+import java.net.NetworkInterface
+import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.nio.channels.*
-import java.util.concurrent.ConcurrentHashMap // Для потокобезопасности коллекций
+import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Level
 import java.util.logging.Logger
-import kotlin.system.exitProcess
 
 class ApiServer(
-    private val commandProcessor: CommandProcessor, private val ioManager: IOManager // Для админской консоли
+    private val commandProcessor: CommandProcessor, private val ioManager: IOManager
 ) {
     private val logger = Logger.getLogger(ApiServer::class.java.name)
 
@@ -180,7 +178,7 @@ class ApiServer(
                 if (readState.isLengthRead) { // Проверяем еще раз, так как readLengthFromBuffer мог изменить состояние
                     if (readState.readObjectBytesFromBuffer(readBuffer)) {
                         logger.log(Level.FINER, "Object bytes read for ${clientChannel.remoteAddress}")
-                        val request = readState.deserializeObject<Request>() // Десериализуем
+                        val request: Request? = readState.deserializeObject() // Десериализуем
                         if (request != null) {
                             logger.log(
                                 Level.INFO, "Received request from ${clientChannel.remoteAddress}: command='${
@@ -205,9 +203,6 @@ class ApiServer(
                                     )
                                 } else {
                                     logger.log(Level.INFO, "Response sent completely to ${clientChannel.remoteAddress}")
-                                    // Если OP_WRITE был установлен только для этого, можно его снять,
-                                    // но если он остается, это не страшно, handleWrite проверит наличие буфера.
-                                    // key.interestOps(SelectionKey.OP_READ)
                                 }
                             } catch (e: IOException) {
                                 logger.log(

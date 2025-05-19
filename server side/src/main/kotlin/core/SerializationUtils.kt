@@ -1,38 +1,42 @@
 package org.example.core
 
-import java.io.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 object SerializationUtils {
 
-    fun <T : Serializable> objectToByteBuffer(obj: T): ByteBuffer {
-        val baos = ByteArrayOutputStream()
-        ObjectOutputStream(baos).use { oos ->
-            oos.writeObject(obj)
-        }
-        val objectBytes = baos.toByteArray()
+
+    val jsonFormat = Json {
+        ignoreUnknownKeys = true
+        prettyPrint = false
+        isLenient = true
+    }
+
+    inline fun <reified T : Any> objectToByteBuffer(obj: T): ByteBuffer {
+        val serializer = serializer<T>()
+        val objectBytes = jsonFormat.encodeToString(serializer, obj).toByteArray(Charsets.UTF_8)
+
         val objectLength = objectBytes.size
 
-        // Выделяем буфер: 4 байта для длины + длина самого объекта
         val buffer = ByteBuffer.allocate(4 + objectLength)
-        buffer.order(ByteOrder.BIG_ENDIAN) // Для консистентности порядка байт (не обязательно, но хорошо)
-        buffer.putInt(objectLength)        // Записываем длину
-        buffer.put(objectBytes)            // Записываем сам объект
-        buffer.flip()                      // Готовим буфер к чтению (для отправки)
+        buffer.order(ByteOrder.BIG_ENDIAN)
+        buffer.putInt(objectLength)
+        buffer.put(objectBytes)
+        buffer.flip()
         return buffer
     }
 
-    // Этот класс будет использоваться для хранения состояния чтения для каждого клиента
     class ObjectReaderState {
         private var lengthBuffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
-        private var objectBuffer: ByteBuffer? = null
-        var expectedLength: Int = -1
+        var objectBuffer: ByteBuffer? = null
+        internal var expectedLength: Int = -1
             private set
         var isLengthRead: Boolean = false
             private set
 
-        // Возвращает true, если длина полностью прочитана из предоставленного dataBuffer
         fun readLengthFromBuffer(dataBuffer: ByteBuffer): Boolean {
             if (isLengthRead) return true
 
@@ -44,50 +48,58 @@ object SerializationUtils {
                 lengthBuffer.flip()
                 expectedLength = lengthBuffer.getInt()
                 isLengthRead = true
-                lengthBuffer.clear() // Сброс для следующего сообщения
-                if (expectedLength < 0 || expectedLength > 10 * 1024 * 1024) { // Защита от слишком больших объектов
-                    throw IOException("Invalid object length received: $expectedLength")
+                lengthBuffer.clear()
+                if (expectedLength < 0 || expectedLength > 10 * 1024 * 1024) {
+                    reset()
+                    throw IOException("Invalid object length received: $expectedLength. Max allowed: ${10 * 1024 * 1024}")
                 }
                 objectBuffer = ByteBuffer.allocate(expectedLength)
                 return true
             }
-            return false // Длина еще не прочитана полностью
+            return false
         }
-
 
         fun readObjectBytesFromBuffer(dataBuffer: ByteBuffer): Boolean {
             if (!isLengthRead || objectBuffer == null) {
-                // throw IllegalStateException("Length not read or objectBuffer not initialized")
-                return false // Не можем читать объект, если не знаем его длину
+                return false
             }
+            val currentObjectBuffer = objectBuffer ?: return false
 
-            while (dataBuffer.hasRemaining() && objectBuffer!!.hasRemaining()) {
-                objectBuffer!!.put(dataBuffer.get())
+            while (dataBuffer.hasRemaining() && currentObjectBuffer.hasRemaining()) {
+                currentObjectBuffer.put(dataBuffer.get())
             }
-            return !objectBuffer!!.hasRemaining() // true, если все байты объекта прочитаны
+            return !currentObjectBuffer.hasRemaining()
         }
 
-
-        fun <T : Serializable> deserializeObject(): T? {
-            if (!isLengthRead || objectBuffer == null || objectBuffer!!.hasRemaining()) {
-                // throw IllegalStateException("Object not fully read")
-                return null // Еще не все данные объекта прочитаны или ошибка
+        inline fun <reified T : Any> deserializeObject(): T? {
+            val currentObjectBuffer = objectBuffer
+            if (!isLengthRead || currentObjectBuffer == null || currentObjectBuffer.hasRemaining()) {
+                return null
             }
-            objectBuffer!!.flip()
-            val bais = ByteArrayInputStream(objectBuffer!!.array(), 0, objectBuffer!!.limit())
+            currentObjectBuffer.flip()
+            val objectBytes = ByteArray(currentObjectBuffer.remaining())
+            currentObjectBuffer.get(objectBytes)
+
             return try {
-                ObjectInputStream(bais).use { ois ->
-                    ois.readObject() as T
-                }
+                val serializer = serializer<T>()
+                jsonFormat.decodeFromString(serializer, String(objectBytes, Charsets.UTF_8))
             } catch (e: Exception) {
-                // Логирование ошибки десериализации
+                System.err.println("Deserialization error for type ${T::class.simpleName} from JSON: ${e.message}")
+                System.err.println(
+                    "Problematic JSON string: ${
+                        String(
+                            objectBytes,
+                            Charsets.UTF_8
+                        )
+                    }"
+                )
                 e.printStackTrace()
                 null
             } finally {
-                // Сброс состояния для следующего объекта
                 reset()
             }
         }
+
         fun reset() {
             lengthBuffer.clear()
             objectBuffer = null

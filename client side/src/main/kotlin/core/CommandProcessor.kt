@@ -4,9 +4,9 @@ import org.example.IO.IOManager
 import org.example.IO.InputManager
 import org.example.model.Vehicle
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.InvalidPathException // Для обработки ошибок пути
 
 class CommandProcessor(
     private val apiClient: ApiClient,
@@ -14,74 +14,97 @@ class CommandProcessor(
 ) {
     private val vehicleReader: VehicleReader = VehicleReader(ioManager)
 
-    // Настройки для execute_script
     private val maxRecursionDepth = 5
     private var recursionDepth = 0
     private val executedScripts = mutableSetOf<String>()
 
-    // Список команд, известных клиенту
-    private val listOfCommands = mutableListOf<String>()
-    private val listOfCommandsThatNeedVR = mutableListOf<String>()
+    // Единый список для хранения имен команд, как они приходят от сервера (с плюсом, если он есть)
+    private var rawServerCommands = mutableListOf<String>()
+
+    // Множество для быстрого определения "чистых" имен команд, требующих VehicleReader
+    private val commandsRequiringVehicleInput = mutableSetOf<String>()
+    // Множество для быстрого определения всех "чистых" имен команд
+    private val knownCleanCommandNames = mutableSetOf<String>()
+
+
+    init {
+        apiClient.onCommandsUpdated = { newRawCommands ->
+            updateCommandLists(newRawCommands)
+            ioManager.outputLine("Client command list updated from server (${knownCleanCommandNames.size} known commands).")
+        }
+    }
+
+    private fun updateCommandLists(newRawCommands: List<String>) {
+        this.rawServerCommands.clear()
+        this.rawServerCommands.addAll(newRawCommands)
+
+        this.commandsRequiringVehicleInput.clear()
+        this.knownCleanCommandNames.clear()
+
+        newRawCommands.forEach { rawCommandName ->
+            if (rawCommandName.endsWith("+")) {
+                val cleanName = rawCommandName.removeSuffix("+").lowercase()
+                this.commandsRequiringVehicleInput.add(cleanName)
+                this.knownCleanCommandNames.add(cleanName)
+            } else {
+                this.knownCleanCommandNames.add(rawCommandName.lowercase())
+            }
+        }
+        // Отладочный вывод
+        // logger.info("Updated knownCleanCommandNames: $knownCleanCommandNames")
+        // logger.info("Updated commandsRequiringVehicleInput: $commandsRequiringVehicleInput")
+    }
+
 
     fun start() {
         ioManager.outputLine("Transport Manager Client")
-        ioManager.outputLine("Attempting to fetch initial command list from server...")
 
-        // Начальная загрузка команд и help
-        try {
-            val initialRequest = Request(body = listOf("help"), vehicle = null, currentCommandsList = listOfCommands)
-            val initialResponse = apiClient.sendRequestAndWaitForResponse(initialRequest)
-
-            if (initialResponse != null) {
-                ioManager.outputLine(initialResponse.responseText)
-
-                val serverNewCommands = initialResponse.newCommandsList
-                if (serverNewCommands.isNotEmpty()) {
-                    listOfCommands.clear()
-                    for (item in serverNewCommands) {
-                        if (item.lowercase().contains("+")) {
-                            listOfCommandsThatNeedVR.add(item.replace("+", ""))
-                        } else {
-                            listOfCommands.add(item)
-                        }
-                    }
-                    ioManager.outputLine("Initial command list received from server.")
-                } else if (!initialResponse.responseText.lowercase().contains("error")) {
-                    ioManager.outputLine("Warning: No commands received in initial response, but connection was successful. Server might have no commands configured or an issue.")
-                }
-
-                if (listOfCommands.isEmpty()) {
-                    if (initialResponse.responseText.lowercase().contains("error")) {
-                        ioManager.error("Error fetching initial command list (server returned an error). Client will exit.")
-                        return
-                    }
-                    ioManager.error("Initial command list from server is empty. Client will exit as it cannot function.")
-                    return
-                }
-            } else {
-                ioManager.error("Failed to fetch initial command list from server (no response or timeout). Client will exit.")
+        // Ожидаем первоначального получения списка команд через callback
+        var initialWaitCycles = 20 // Увеличим ожидание до ~10 секунд
+        while (knownCleanCommandNames.isEmpty() && initialWaitCycles > 0 && apiClient.running.get()) {
+            try {
+                Thread.sleep(500)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                ioManager.error("Interrupted during initial command list wait.")
+                apiClient.close() // Закрываем клиент, если прервали ожидание
                 return
             }
-        } catch (e: Exception) {
-            ioManager.error("Critical error during initial command fetch: ${e.message}. Client will exit.")
-            return
+            initialWaitCycles--
+            if (knownCleanCommandNames.isNotEmpty()) break
+            if (initialWaitCycles % 4 == 0) {
+                ioManager.outputLine("Waiting for initial command list from server...")
+            }
         }
 
-        // Основной цикл приема команд от пользователя
+        if (knownCleanCommandNames.isEmpty()) {
+            if (apiClient.running.get()) {
+                ioManager.error("Failed to fetch initial command list from server. Server might be unavailable or no commands configured.")
+                ioManager.outputLine("You can try commands, but they might not be recognized until connection is (re)established and commands are received.")
+                // Не выходим, позволяем клиенту работать и пытаться переподключиться
+            } else {
+                ioManager.outputLine("ApiClient stopped during initialization.")
+                return
+            }
+        } else {
+            ioManager.outputLine("Initial command list received. Type 'help' for available commands.")
+        }
+
         var continueExecution = true
-        while (continueExecution) {
+        while (continueExecution && apiClient.running.get()) {
             ioManager.outputInline("> ")
             val userInput = ioManager.readLine().trim()
-            val parts = userInput.split("\\s+".toRegex(), 2) // Разделяем на имя команды и остальное
-            val commandName = parts.getOrNull(0) ?: ""
+            if (!apiClient.running.get() && userInput.isBlank()) break // Выход если клиент остановлен во время чтения
+
+            val parts = userInput.split("\\s+".toRegex(), 2)
+            val commandNameInput = parts.getOrNull(0)?.lowercase() ?: "" // Сразу в lowercase
             val argument = parts.getOrNull(1) ?: ""
 
-            when (commandName.lowercase()) { // Сравнение без учета регистра для удобства
+            when (commandNameInput) {
                 "exit" -> {
                     ioManager.outputLine("Exiting client application...")
-                    continueExecution = false // Устанавливаем флаг для выхода из цикла
+                    continueExecution = false
                 }
-
                 "execute_script" -> {
                     if (argument.isNotBlank()) {
                         executeScript(argument)
@@ -89,69 +112,94 @@ class CommandProcessor(
                         ioManager.outputLine("Usage: execute_script <filename>")
                     }
                 }
-
-                "" -> {
-                }
-
+                "" -> { /* Пустой ввод, ничего не делаем */ }
                 else -> {
-                    processSingleCommand(commandName, if (parts.size > 1) parts.drop(1) else emptyList())
+                    processSingleCommand(commandNameInput, if (parts.size > 1) parts.drop(1) else emptyList())
                 }
             }
         }
         ioManager.outputLine("Client command loop finished.")
+        apiClient.close() // Убедимся, что клиент закрывается при выходе из цикла
     }
 
-    /**
-     * Обрабатывает одну команду, введенную пользователем или из скрипта (кроме execute_script и exit).
-     */
-    private fun processSingleCommand(commandName: String, args: List<String>) {
-        // Проверяем, известна ли команда клиенту
-        if ((!listOfCommands.any {
-                it.equals(
-                    commandName,
-                    ignoreCase = true
-                )
-            }) || (!listOfCommandsThatNeedVR.any { it.equals(commandName, ignoreCase = true) })) {
-            ioManager.outputLine("Command '$commandName' is not recognized by the client. Type 'help' for available commands.")
+    private fun processSingleCommand(commandNameInLowercase: String, args: List<String>) {
+        // Проверяем, известна ли "чистая" команда клиенту
+        if (!knownCleanCommandNames.contains(commandNameInLowercase)) {
+            ioManager.outputLine("Command '$commandNameInLowercase' is not recognized by the client. Type 'help' for available commands (if list was received).")
             return
         }
 
         var vehicleForRequest: Vehicle? = null
-        var finalCommandBody: List<String> = listOf(commandName) + args
+        // Имя команды для отправки на сервер: если она была с "+", отправляем с "+".
+        // Иначе отправляем "чистое" имя.
+        val commandNameToSend = rawServerCommands.firstOrNull {
+            it.removeSuffix("+").equals(commandNameInLowercase, ignoreCase = true) ||
+                    it.equals(commandNameInLowercase, ignoreCase = true)
+        } ?: commandNameInLowercase // Если не нашли в raw (маловероятно, но для безопасности)
 
-        // Специальная логика для команд, требующих Vehicle или интерактивного ввода аргументов
+        var finalCommandBody: List<String> = listOf(commandNameToSend) + args
 
-        if (listOfCommandsThatNeedVR.contains(commandName)) {
-            ioManager.outputLine("Please enter data for the vehicle:")
-            vehicleForRequest = vehicleReader.readVehicle()
-            finalCommandBody = listOf("$commandName+") + args
+        // Специальная логика для команд, требующих Vehicle
+        if (commandsRequiringVehicleInput.contains(commandNameInLowercase)) {
+            // Команды типа "add", "add_if_max", "add_if_min"
+            if (commandNameInLowercase == "add" || commandNameInLowercase == "add_if_max" || commandNameInLowercase == "add_if_min") {
+                ioManager.outputLine("Please enter data for the new vehicle:")
+                vehicleForRequest = vehicleReader.readVehicle()
+                // Аргументы для этих команд не нужны, сервер берет Vehicle из запроса
+                finalCommandBody = listOf(commandNameToSend) // Только имя команды (с "+")
+            }
+            // Команда "update_id"
+            else if (commandNameInLowercase == "update_id") {
+                val idArg = args.getOrNull(0) ?: run {
+                    ioManager.outputLine("Usage: update_id <ID_to_update>")
+                    ioManager.outputInline("Enter ID of vehicle to update: ")
+                    ioManager.readLine().takeIf { !it.isNullOrBlank() }
+                }
+
+                if (idArg.isNullOrBlank()) {
+                    ioManager.error("ID is required for 'update_id' command.")
+                    return
+                }
+                val idToUpdate = idArg.toIntOrNull()
+                if (idToUpdate == null) {
+                    ioManager.error("Invalid ID format '$idArg' for 'update_id'. ID must be an integer.")
+                    return
+                }
+
+                ioManager.outputLine("Enter new data for vehicle with ID $idToUpdate:")
+                val newVehicleDataFromReader = vehicleReader.readVehicle()
+                vehicleForRequest = newVehicleDataFromReader.copy(id = idToUpdate) // Копируем данные, но ставим нужный ID
+                // Сервер ожидает ID в аргументах команды, а само тело Vehicle в объекте.
+                // Имя команды уже содержит "+", если нужно.
+                finalCommandBody = listOf(commandNameToSend, idToUpdate.toString())
+            }
+            // Добавь сюда другие команды, если они требуют Vehicle и имеют особую логику аргументов
+            else {
+                ioManager.outputLine("Please enter data for the vehicle for command '$commandNameInLowercase':")
+                vehicleForRequest = vehicleReader.readVehicle()
+                // Если для других команд с "+" аргументы не нужны, а только Vehicle:
+                finalCommandBody = listOf(commandNameToSend)
+            }
         }
 
-        // Создание запроса
         val request = Request(
             body = finalCommandBody,
             vehicle = vehicleForRequest,
-            currentCommandsList = ArrayList(listOfCommands) // Передаем копию на случай, если серверу это нужно
+            // Передаем "сырой" список команд, если серверу это нужно для какой-то синхронизации
+            // Либо можно передавать null, если сервер всегда сам знает актуальный список
+            currentCommandsList = ArrayList(rawServerCommands)
         )
 
-        ioManager.outputLine("Sending command '$commandName' to server...")
-        val response = apiClient.sendRequestAndWaitForResponse(request) // Отправка и ожидание ответа
+        ioManager.outputLine("Sending command '$commandNameToSend' to server...")
+        val response = apiClient.sendRequestAndWaitForResponse(request)
 
         if (response != null) {
-            ioManager.outputLine(response.responseText) // Вывод основного текста ответа
-
-            val serverNewCommands = response.newCommandsList
-            if (serverNewCommands.isNotEmpty()) {
-                // Обновляем список команд, если он изменился
-                if (listOfCommands != serverNewCommands) {
-                    listOfCommands.clear()
-                    listOfCommands.addAll(serverNewCommands)
-                    ioManager.outputLine("Client command list updated from server.")
-                }
-            }
+            ioManager.outputLine(response.responseText)
+            // Обновление списка команд теперь происходит через callback apiClient.onCommandsUpdated,
+            // который вызывается в ApiClient.handleRead, если response.newCommandsList не пуст.
+            // Поэтому здесь явное обновление не нужно, чтобы избежать двойного обновления.
         } else {
-            // response is null (таймаут или ошибка соединения/NIO в ApiClient)
-            ioManager.error("No response received from server or request timed out for command: $commandName")
+            ioManager.error("No response received from server or request timed out for command: $commandNameToSend")
         }
     }
 
@@ -163,7 +211,7 @@ class CommandProcessor(
 
         val filePathString = Paths.get(fileName).toAbsolutePath().toString()
         if (filePathString in executedScripts) {
-            ioManager.error("Recursion detected: Script '$fileName' (resolved to '$filePathString') is already running in this call chain. Aborting.")
+            ioManager.error("Recursion detected: Script '$fileName' (resolved to '$filePathString') is already running. Aborting.")
             return
         }
 
@@ -186,116 +234,96 @@ class CommandProcessor(
             return
         }
 
-
         recursionDepth++
-        executedScripts.add(filePathString) // Добавляем абсолютный путь для более надежного отслеживания
+        executedScripts.add(filePathString)
         ioManager.outputLine("Executing script: $fileName (Depth: $recursionDepth)")
 
-        val originalInputManager = ioManager.getInput() // Сохраняем текущий менеджер ввода
+        val originalInputManager = ioManager.getInput()
         try {
             Files.newBufferedReader(path).use { reader ->
                 val scriptInputManager = object : InputManager {
                     override fun readLine(): String? = reader.readLine()
-                    override fun hasInput(): Boolean = reader.ready() // Проверяет, есть ли еще что читать
+                    override fun hasInput(): Boolean = reader.ready() // Для файлов ready() обычно работает нормально
                 }
-                ioManager.setInput(scriptInputManager) // Устанавливаем чтение из файла
+                ioManager.setInput(scriptInputManager)
 
                 var lineNumber = 0
-                while (scriptInputManager.hasInput()) { // Используем hasInput из нашего scriptInputManager
+                while (true) { // Используем readLine() == null для проверки конца файла
                     lineNumber++
-                    val line = scriptInputManager.readLine()?.trim() ?: break // Конец файла
-                    if (line.isEmpty() || line.startsWith("#")) { // Пропускаем пустые строки и комментарии
-                        continue
-                    }
+                    val line = scriptInputManager.readLine()?.trim() ?: break
+                    if (line.isEmpty() || line.startsWith("#")) continue
 
                     ioManager.outputLine("[Script Line $lineNumber]> $line")
                     val parts = line.split("\\s+".toRegex(), 2)
-                    val commandName = parts.getOrNull(0) ?: ""
+                    val commandNameFromScript = parts.getOrNull(0)?.lowercase() ?: ""
                     val argument = parts.getOrNull(1) ?: ""
 
-                    // Обработка команд из скрипта
-                    // 'exit' в скрипте обычно игнорируется или прерывает только скрипт
-                    // 'execute_script' обрабатывается рекурсивно
-                    when (commandName.lowercase()) {
+                    when (commandNameFromScript) {
                         "execute_script" -> {
-                            if (argument.isNotBlank()) {
-                                executeScript(argument) // Рекурсивный вызов
-                            } else {
-                                ioManager.error("[Script Error Line $lineNumber] Usage: execute_script <filename>")
-                            }
+                            if (argument.isNotBlank()) executeScript(argument)
+                            else ioManager.error("[Script Error Line $lineNumber] Usage: execute_script <filename>")
                         }
-
-                        "add", "add_if_min", "add_if_max" -> processAddCommandInScript(
-                            commandName,
-                            scriptInputManager,
-                            lineNumber
-                        )
-                        // Другие команды обрабатываются стандартно
-                        else -> processSingleCommand(commandName, if (parts.size > 1) parts.drop(1) else emptyList())
+                        // Для команд add* в скрипте, используем специальный обработчик
+                        "add", "add_if_min", "add_if_max" -> processAddCommandInScript(commandNameFromScript, scriptInputManager, lineNumber)
+                        else -> processSingleCommand(commandNameFromScript, if (parts.size > 1) parts.drop(1) else emptyList())
                     }
-                    // Небольшая пауза, чтобы вывод не был слишком быстрым (опционально)
-                    // Thread.sleep(50)
                 }
             }
         } catch (e: Exception) {
             ioManager.error("Error during script execution '$fileName': ${e.message}")
-            e.printStackTrace()
+            // e.printStackTrace() // Раскомментируй для детальной отладки
         } finally {
-            ioManager.setInput(originalInputManager) // Восстанавливаем оригинальный менеджер ввода
+            ioManager.setInput(originalInputManager)
             executedScripts.remove(filePathString)
             recursionDepth--
             ioManager.outputLine("Finished executing script: $fileName (Depth: $recursionDepth)")
         }
     }
 
-    private fun processAddCommandInScript(commandName: String, scriptInputManager: InputManager, baseLineNumber: Int) {
+    private fun processAddCommandInScript(commandNameInLowercase: String, scriptInputManager: InputManager, baseLineNumber: Int) {
         val vehicleData = mutableListOf<String>()
-        ioManager.outputLine("[Script Processing '$commandName'] Expecting 7 lines of vehicle data...")
+        ioManager.outputLine("[Script Processing '$commandNameInLowercase'] Expecting 7 lines of vehicle data...")
         var linesRead = 0
         for (i in 1..7) {
-            if (!scriptInputManager.hasInput()) {
-                ioManager.error("[Script Error Line ${baseLineNumber + i}] Unexpected end of script. Expected data for '$commandName'.")
-                return
-            }
             val dataLine = scriptInputManager.readLine()
-            if (dataLine == null) { // Неожиданный конец файла
-                ioManager.error("[Script Error Line ${baseLineNumber + i}] Unexpected end of script file while reading data for '$commandName'.")
+            if (dataLine == null) {
+                ioManager.error("[Script Error Line ${baseLineNumber + linesRead + 1}] Unexpected end of script. Expected data for '$commandNameInLowercase'.")
                 return
             }
-            vehicleData.add(dataLine.trim()) // Добавляем даже пустые строки, чтобы сохранить структуру
+            vehicleData.add(dataLine.trim())
             linesRead++
         }
 
-        if (linesRead == 7) {
-            try {
-                ioManager.outputLine("[Script Processing '$commandName'] Data collected: $vehicleData")
-                val vehicleFromScript =
-                    vehicleReader.readVehicleFromScript(vehicleData) // vehicleReader должен уметь это
-                val request = Request(
-                    body = listOf(commandName), // Используем оригинальное имя команды
-                    vehicle = vehicleFromScript,
-                    currentCommandsList = ArrayList(listOfCommands)
-                )
+        if (linesRead < 7) { // Дополнительная проверка, хотя цикл должен обеспечить 7 чтений или ошибку
+            ioManager.error("[Script ERROR] Not enough data lines for '$commandNameInLowercase' command. Expected 7, got $linesRead.")
+            return
+        }
 
-                val response = apiClient.sendRequestAndWaitForResponse(request)
-                if (response != null) {
-                    ioManager.outputLine("[Script INFO] '$commandName' command response: ${response.responseText}")
-                    val serverNewCommands = response.newCommandsList
-                    if (serverNewCommands.isNotEmpty() && listOfCommands != serverNewCommands) {
-                        listOfCommands.clear()
-                        listOfCommands.addAll(serverNewCommands)
-                        ioManager.outputLine("[Script INFO] Client command list updated from server.")
-                    }
-                } else {
-                    ioManager.error("[Script ERROR] No response for '$commandName' command from script or request timed out.")
-                }
-            } catch (e: Exception) { // Ошибки при чтении из vehicleReader.readVehicleFromScript или другие
-                ioManager.error("[Script ERROR] Error processing '$commandName' command from script: ${e.message}. Data was: $vehicleData")
-                e.printStackTrace()
+        try {
+            // ioManager.outputLine("[Script Processing '$commandNameInLowercase'] Data collected: $vehicleData")
+            val vehicleFromScript = vehicleReader.readVehicleFromScript(vehicleData)
+
+            // Находим "сырое" имя команды с "+" для отправки на сервер
+            val commandNameToSend = rawServerCommands.firstOrNull {
+                it.removeSuffix("+").equals(commandNameInLowercase, ignoreCase = true)
+            } ?: "$commandNameInLowercase+" // Если вдруг не нашли, формируем с "+"
+
+            val request = Request(
+                body = listOf(commandNameToSend), // Только имя команды (с "+")
+                vehicle = vehicleFromScript,
+                currentCommandsList = ArrayList(rawServerCommands)
+            )
+            ioManager.outputLine("Sending command '$commandNameToSend' from script to server...")
+            val response = apiClient.sendRequestAndWaitForResponse(request)
+            if (response != null) {
+                ioManager.outputLine("[Script INFO] '$commandNameToSend' command response: ${response.responseText}")
+                // Обновление списка команд произойдет через callback, если сервер его прислал
+            } else {
+                ioManager.error("[Script ERROR] No response for '$commandNameToSend' command from script or request timed out.")
             }
-        } else {
-            // Эта ветка не должна достигаться при текущей логике цикла for, но для безопасности
-            ioManager.error("[Script ERROR] Not enough data lines for '$commandName' command. Expected 7, got $linesRead.")
+        } catch (e: Exception) {
+            ioManager.error("[Script ERROR] Error processing '$commandNameInLowercase' command from script: ${e.message}. Data was: $vehicleData")
+            // e.printStackTrace() // Раскомментируй для детальной отладки
         }
     }
 }

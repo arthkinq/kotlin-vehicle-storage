@@ -10,7 +10,7 @@ data class Vehicle(
     var distanceTravelled: Double?,
     var type: VehicleType?,
     var fuelType: FuelType?
-) : Comparable<Vehicle>, java.io.Serializable {
+) : Comparable<Vehicle>{
     init {
         require(id >= 0) { "ID must be positive" }
         require(name.isNotEmpty()) { "Name cannot be empty" }
@@ -47,8 +47,4 @@ data class Vehicle(
         return id.hashCode() // Хэш-код на основе id
     }
 
-    companion object {
-        @JvmStatic // Good practice for Java interop, though not strictly needed here
-        private val serialVersionUID: Long = 1L // Or any other long value
-    }
 }

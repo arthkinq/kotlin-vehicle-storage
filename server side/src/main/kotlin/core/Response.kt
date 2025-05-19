@@ -10,8 +10,4 @@ data class Response(
     fun updateCommands(list: List<String>) {
         newCommandsList.addAll(list)
     }
-
-    companion object {
-        private const val serialVersionUID: Long = 1L
-    }
 }

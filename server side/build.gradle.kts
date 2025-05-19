@@ -16,7 +16,6 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("org.junit.jupiter:junit-jupiter:5.9.2")
     implementation("io.mockk:mockk:1.13.5")
     implementation("org.apache.commons:commons-csv:1.10.0")
@@ -26,7 +25,7 @@ dependencies {
     runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
     implementation("org.assertj:assertj-core:3.24.2")
     implementation("com.google.code.gson:gson:2.10.1")
-}
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0") }
 
 tasks.test {
     useJUnitPlatform()
