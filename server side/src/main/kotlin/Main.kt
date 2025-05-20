@@ -1,8 +1,8 @@
 import core.CommandProcessor
 import core.ApiServer
-import io.ConsoleInputManager
-import io.ConsoleOutputManager
-import io.IOManager
+import myio.ConsoleInputManager
+import myio.ConsoleOutputManager
+import myio.IOManager
 
 fun main() {
     val serverIoManager = IOManager(

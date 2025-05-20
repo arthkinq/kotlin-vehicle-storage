@@ -99,7 +99,7 @@ class CollectionManager(private val filename: String) {
                         val coordinates = parseCoordinates(record, id, warnings)
                         val creationDate = parseCreationDate(record)
                         val enginePower = parseEnginePower(record)
-                        val distanceTravelled = parseDistance(record, id, warnings)
+                        val distanceTravelled = parseDistance(record)
                         val (type, fuelType) = parseEnums(record)
 
                         val vehicle = Vehicle(
@@ -135,7 +135,6 @@ class CollectionManager(private val filename: String) {
     }
 
     private fun parseName(record: CSVRecord): String {
-        //Возвращает имя или null
         return record["name"]?.takeIf { it.isNotBlank() }
             ?: throw Exception("Missing name")
     }
@@ -172,12 +171,8 @@ class CollectionManager(private val filename: String) {
             ?: throw Exception("Invalid engine power")
     }
 
-    private fun parseDistance(record: CSVRecord, id: Int, warnings: MutableList<String>): Double? {
-        return record["distanceTravelled"]?.takeIf { it.isNotBlank() }
-            ?.toDoubleOrNull()
-            ?.also {
-                if (it <= 0) warnings.add("ID $id: Non-positive distance")
-            }
+    private fun parseDistance(record: CSVRecord): Double? {
+        return record["distanceTravelled"]?.takeIf { it.isNotBlank() }?.toDoubleOrNull()
     }
 
     private fun parseEnums(record: CSVRecord): Pair<VehicleType?, FuelType?> {
@@ -213,7 +208,7 @@ class CollectionManager(private val filename: String) {
         }
     }
 
-    fun saveToFile(path: Path) {
+    private fun saveToFile(path: Path) {
         Files.newBufferedWriter(path, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING).use { writer ->
             CSVPrinter(writer, CSVFormat.DEFAULT).use { printer ->
                 printer.printRecord(

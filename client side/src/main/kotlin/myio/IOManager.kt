@@ -1,4 +1,4 @@
-package io
+package myio
 
 class IOManager(
     private var input: InputManager,

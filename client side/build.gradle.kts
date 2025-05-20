@@ -6,7 +6,7 @@ plugins {
     id("org.jetbrains.dokka") version "2.0.0"
 }
 
-group = "org.example"
+group = ""
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -35,7 +35,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("org.example.MainKt")
+    mainClass.set("MainKt")
 }
 
 tasks {

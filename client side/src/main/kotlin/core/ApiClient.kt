@@ -1,6 +1,5 @@
-package core // Или ваш пакет для клиента
+package core
 
-import io.IOManager
 import common.CommandDescriptor
 import common.Request
 import common.Response
@@ -14,6 +13,7 @@ import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.logging.Level
 import java.util.logging.Logger
+import myio.IOManager
 
 class ApiClient(
     private val ioManager: IOManager, private val serverHost: String = "localhost", private val serverPort: Int = 8888
@@ -45,9 +45,9 @@ class ApiClient(
     private lateinit var nioThread: Thread
     private val logger = Logger.getLogger(ApiClient::class.java.name)
 
-     var onCommandDescriptorsUpdated: ((List<CommandDescriptor>) -> Unit)? = null
+    var onCommandDescriptorsUpdated: ((List<CommandDescriptor>) -> Unit)? = null
     var onConnectionStatusChanged: ((Boolean, String?) -> Unit)? =
-        null // Callback для статуса соединения (true/false, причина)
+        null
 
     init {
         logger.level = Level.WARNING // Или Level.INFO для более детального логгирования

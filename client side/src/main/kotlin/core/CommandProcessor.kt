@@ -1,7 +1,7 @@
 package core
 
-import io.IOManager
-import io.InputManager
+import myio.IOManager
+import myio.InputManager
 import common.ArgumentType
 import common.CommandDescriptor
 import common.Request
@@ -23,6 +23,7 @@ class CommandProcessor(
     private val executedScripts = mutableSetOf<String>()
 
     private var commandRegistry = mutableMapOf<String, CommandDescriptor>()
+    private var oldCommandRegistry = mutableMapOf<String, CommandDescriptor>()
 
     @Volatile
     private var commandListInitialized = false
@@ -31,7 +32,6 @@ class CommandProcessor(
     private var currentlyConnected = false
 
     init {
-        // Обновленный callback
         apiClient.onCommandDescriptorsUpdated = { newDescriptors ->
             updateCommandRegistry(newDescriptors)
             val message: String
@@ -40,8 +40,10 @@ class CommandProcessor(
                     commandListInitialized = true
                     message =
                         "Initial command list received (${commandRegistry.size} commands). Type 'help' for details."
-                } else {
+                } else if (commandRegistry.size != oldCommandRegistry.size) {
                     message = "Client command list updated from server (${commandRegistry.size} commands)."
+                } else {
+                    message = ""
                 }
             } else {
                 message = if (commandListInitialized) {
@@ -68,6 +70,7 @@ class CommandProcessor(
         newDescriptors.forEach { descriptor ->
             newRegistry[descriptor.name.lowercase()] = descriptor
         }
+        oldCommandRegistry = commandRegistry
         commandRegistry = newRegistry
     }
 

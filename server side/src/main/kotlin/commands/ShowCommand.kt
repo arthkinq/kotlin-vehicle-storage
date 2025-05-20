@@ -1,6 +1,6 @@
 package commands
 
-import io.IOManager
+import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
@@ -26,7 +26,7 @@ class ShowCommand : Command(
         } else {
             val stringBuilder = StringBuilder("Vehicles in collection (sorted by name):\n")
             collectionManager.getAll()
-                .sortedBy { it.id }
+                .sortedBy { it.name}
                 .forEach { item ->
                     stringBuilder.append("$item\n")
                 }

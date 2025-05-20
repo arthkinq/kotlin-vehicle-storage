@@ -1,6 +1,6 @@
 package commands
 
-import io.IOManager
+import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
@@ -20,11 +20,8 @@ class SaveCommand : Command(
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
-        val errors = if (args.isEmpty()) {
-            collectionManager.saveToFile()
-        } else {
-            emptyList()
-        }
+        val errors = collectionManager.saveToFile()
+
 
         return if (errors.isEmpty()) {
             Response("Data saved successfully.")
@@ -34,6 +31,7 @@ class SaveCommand : Command(
 
 
     }
+
     override fun getExpectedArguments(): List<CommandArgument> {
         return emptyList()
     }

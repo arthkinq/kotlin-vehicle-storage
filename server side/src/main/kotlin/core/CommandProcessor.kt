@@ -1,6 +1,6 @@
 package core
 
-import io.IOManager // Используется для ioManagerForLogging
+import myio.IOManager // Используется для ioManagerForLogging
 import commands.*
 import common.CommandDescriptor
 import common.Response
@@ -9,8 +9,8 @@ import java.util.logging.Level
 import java.util.logging.Logger
 
 class CommandProcessor(
-    private val ioManagerForLogging: IOManager, // Для логирования ошибок и информации на сервере
-    fileName: String // Имя файла для CollectionManager
+    private val ioManagerForLogging: IOManager,
+    fileName: String
 ) {
     private val commandsList: Map<String, CommandInterface>
     val collectionManager = CollectionManager(fileName)
@@ -57,7 +57,10 @@ class CommandProcessor(
             logger.log(Level.WARNING, "CommandProcessor: Received empty command body.")
             return Response("Error: Empty command received by server.")
         }
-
+        if (commandBody.contains("save")) {
+           SaveCommand().execute(collectionManager = collectionManager, ioManager = ioManagerForLogging)
+            return Response("Saved!")
+        }
         val commandName = commandBody[0].lowercase()
         val commandArgs = commandBody.drop(1)
 

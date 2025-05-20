@@ -1,4 +1,4 @@
-package io
+package myio
 
 class ConsoleOutputManager : OutputManager {
     override fun write(text: String) = print(text)

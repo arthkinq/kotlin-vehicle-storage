@@ -1,4 +1,4 @@
-package io
+package myio
 
 interface InputManager {
     fun readLine(): String?

@@ -1,6 +1,6 @@
 package core
 
-import io.IOManager
+import myio.IOManager
 import common.Request
 import common.SerializationUtils
 import java.io.IOException
@@ -317,7 +317,7 @@ class ApiServer(
                         running = false // Устанавливаем флаг для остановки основного цикла
                         selector?.wakeup()
                         val response = commandProcessor.processCommand(listOf("save"), null)
-                        ioManager.outputLine("Save command result: ${response.responseText}")
+                        logger.log(Level.INFO, "Save command result: ${response.responseText}")
                         logger.log(Level.INFO, "AdminConsoleThread: Server shutdown initiated.")
                         return
                     }
@@ -325,7 +325,7 @@ class ApiServer(
                     "saveadmin" -> {
                         logger.log(Level.INFO, "AdminConsoleThread: Processing 'saveAdmin'.")
                         val response = commandProcessor.processCommand(listOf("save"), null)
-                        ioManager.outputLine("Save command result: ${response.responseText}")
+                        logger.log(Level.INFO, "Save command result: ${response.responseText}")
                     }
 
                     "serveraddress" -> {

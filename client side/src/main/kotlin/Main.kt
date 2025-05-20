@@ -1,6 +1,6 @@
-import io.IOManager
-import io.ConsoleInputManager
-import io.ConsoleOutputManager
+import myio.IOManager
+import myio.ConsoleInputManager
+import myio.ConsoleOutputManager
 import core.*
 
 fun main() {

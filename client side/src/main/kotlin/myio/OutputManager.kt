@@ -1,4 +1,4 @@
-package io
+package myio
 
 interface OutputManager {
     fun write(text: String)
