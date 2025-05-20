@@ -40,7 +40,7 @@ application {
 
 tasks {
     shadowJar {
-        archiveBaseName.set("object-kotlin-storage")
+        archiveBaseName.set("Transport manager client")
         archiveVersion.set("1.0")
         archiveClassifier.set("")
         manifest {

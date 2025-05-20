@@ -35,7 +35,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("org.example.MainKt")
+    mainClass.set("MainKt")
 }
 
 generateUml {
@@ -60,7 +60,7 @@ generateUml {
 
 tasks {
     shadowJar {
-        archiveBaseName.set("object-storage-kotlin-server")
+        archiveBaseName.set("Transport manager server")
         archiveVersion.set("1.0")
         archiveClassifier.set("")
         manifest {
