@@ -16,7 +16,9 @@ import java.util.logging.Logger
 import myio.IOManager
 
 class ApiClient(
-    private val ioManager: IOManager, private val serverHost: String = "localhost", private val serverPort: Int = 8888
+    private val ioManager: IOManager,
+    private val serverHost: String = "localhost",
+    private val serverPort: Int = 8888
 ) {
     private var selector: Selector? = null
     private var channel: SocketChannel? = null
