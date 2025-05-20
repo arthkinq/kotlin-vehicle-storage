@@ -1,9 +1,10 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle // Импорт нужен, если Vehicle используется в сигнатуре execute
+import io.IOManager
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle // Импорт нужен, если Vehicle используется в сигнатуре execute
 
 class ShowCommand : Command(
     name = "show",
@@ -25,11 +26,19 @@ class ShowCommand : Command(
         } else {
             val stringBuilder = StringBuilder("Vehicles in collection (sorted by name):\n")
             collectionManager.getAll()
-                .sortedBy { it.name }
+                .sortedBy { it.id }
                 .forEach { item ->
                     stringBuilder.append("$item\n")
                 }
             return Response(stringBuilder.toString())
         }
+    }
+
+    override fun getExpectedArguments(): List<CommandArgument> {
+        return emptyList()
+    }
+
+    override fun doesRequireVehicle(): Boolean {
+        return false
     }
 }

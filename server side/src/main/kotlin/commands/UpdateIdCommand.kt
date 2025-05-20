@@ -1,9 +1,11 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import common.ArgumentType
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle
 
 class UpdateIdCommand : Command(
     name = "update_id",
@@ -45,5 +47,13 @@ class UpdateIdCommand : Command(
             ioManager.error("UpdateIdCommand: Unexpected error updating vehicle ID $idFromArgs - ${e.message}")
             return Response("An unexpected error occurred while updating the vehicle.")
         }
+    }
+
+    override fun getExpectedArguments(): List<CommandArgument> {
+        return listOf(CommandArgument("id", ArgumentType.INTEGER, isOptional = false, description = "update existing vehicle by id with new parameters"))
+    }
+
+    override fun doesRequireVehicle(): Boolean {
+        return true
     }
 }

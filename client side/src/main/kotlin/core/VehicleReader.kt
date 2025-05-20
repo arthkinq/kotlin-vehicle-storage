@@ -1,44 +1,15 @@
-package org.example.core
+package core
 
-
-import org.example.IO.IOManager
-import org.example.model.*
-import java.util.*
+import io.IOManager
+import model.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.NoSuchElementException
 
 class VehicleReader(private var ioManager: IOManager) {
-    private val validInputs = listOf("name", "coordinates", "enginePower", "distanceTravelled", "type", "fuelType")
-
     companion object {
         private val idCounter = AtomicInteger(1)
-        fun clearId() = idCounter.set(1)
     }
 
-
-    fun readUpdatesForVehicle(vehicle: Vehicle) {
-        ioManager.outputLine("You can change: ${validInputs.joinToString(", ")}.")
-        ioManager.outputLine("What do you want to change? > ")
-        val input = ioManager.readLine()
-        if (input in validInputs) {
-            try {
-                when (input) {
-                    "name" -> vehicle.name = readNonEmptyString("Vehicle name")
-                    "coordinates" -> vehicle.coordinates = readCoordinates()
-                    "enginePower" -> vehicle.enginePower = readPositiveDouble("Engine power")
-                    "distanceTravelled" -> vehicle.distanceTravelled = readOptionalDouble("Distance travelled")
-                    "type" -> vehicle.type = readEnum("Vehicle type", VehicleType::class.java)
-                    "fuelType" -> readEnum("Fuel type", FuelType::class.java)
-                }
-            } catch (e: IllegalArgumentException) {
-                ioManager.error("Validation error: ${e.message}")
-            } catch (e: InputMismatchException) {
-                ioManager.error("Format error: ${e.message}")
-            }
-        } else {
-            ioManager.outputLine("Wrong input. Please enter one of these commands: ${validInputs.joinToString(", ")}.")
-        }
-    }
 
     fun readVehicle(): Vehicle {
         return Vehicle(

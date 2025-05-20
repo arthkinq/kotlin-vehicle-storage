@@ -1,9 +1,10 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle
 
 class AddIfMaxCommand : Command(
     name = "add_if_max",
@@ -22,7 +23,7 @@ class AddIfMaxCommand : Command(
         }
 
         if (vehicle == null) {
-            ioManager.error("AddIfMaxCommand: Vehicle object is null in the request.") // Лог на сервере
+            ioManager.error("AddIfMaxCommand: Vehicle object is null in the request.")
             return Response("Error: Vehicle data is missing in the request for '${getName()}' command.")
         }
 
@@ -43,5 +44,13 @@ class AddIfMaxCommand : Command(
         } else {
             return Response("Vehicle not added, engine power not greater than max.")
         }
+    }
+
+    override fun getExpectedArguments(): List<CommandArgument> {
+        return emptyList()
+    }
+
+    override fun doesRequireVehicle(): Boolean {
+        return true
     }
 }

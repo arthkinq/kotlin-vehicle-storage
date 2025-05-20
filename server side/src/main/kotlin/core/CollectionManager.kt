@@ -1,10 +1,10 @@
-package org.example.core
+package core
 
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVPrinter
 import org.apache.commons.csv.CSVRecord
-import org.example.model.*
+import model.*
 import java.io.IOException //TODO remove
 import java.nio.charset.StandardCharsets
 import java.nio.file.*

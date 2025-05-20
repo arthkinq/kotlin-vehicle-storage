@@ -1,9 +1,10 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle
 
 class ClearCommand : Command(
     name = "clear",
@@ -21,5 +22,13 @@ class ClearCommand : Command(
         }
         collectionManager.clear()
         return Response("Collection is clear.")
+    }
+
+    override fun getExpectedArguments(): List<CommandArgument> {
+        return emptyList()
+    }
+
+    override fun doesRequireVehicle(): Boolean {
+        return false
     }
 }

@@ -1,9 +1,9 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.Response
+import model.Vehicle
 
 abstract class RemoveAnyByCharacteristicCommand(
     name: String,
@@ -23,9 +23,9 @@ abstract class RemoveAnyByCharacteristicCommand(
         if (args.isEmpty() || args.size != 2) {
             return Response("Error: Args can be size ${size}.")
         }
-        val vehicle = collectionManager.findByCharacteristic(args[0], args[1])
+        val vehicletmp = collectionManager.findByCharacteristic(args[0], args[1])
             ?: return Response("No vehicle found with $args[0] = $args[1]")
-        collectionManager.deleteElement(vehicle)
-        return Response("Element removed: $vehicle")
+        collectionManager.deleteElement(vehicletmp)
+        return Response("Element removed: $vehicletmp")
     }
 }

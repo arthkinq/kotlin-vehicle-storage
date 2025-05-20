@@ -1,10 +1,8 @@
-package org.example
-
-import org.example.IO.IOManager
-import org.example.core.CommandProcessor
-import org.example.IO.ConsoleInputManager
-import org.example.IO.ConsoleOutputManager
-import org.example.core.ApiServer
+import core.CommandProcessor
+import core.ApiServer
+import io.ConsoleInputManager
+import io.ConsoleOutputManager
+import io.IOManager
 
 fun main() {
     val serverIoManager = IOManager(

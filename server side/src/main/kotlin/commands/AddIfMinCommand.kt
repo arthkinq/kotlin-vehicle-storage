@@ -1,9 +1,10 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle
 
 class AddIfMinCommand : Command(
     name = "add_if_min",
@@ -26,10 +27,10 @@ class AddIfMinCommand : Command(
             return Response("Error: Vehicle data is missing in the request for '${getName()}' command.")
         }
 
-        val minVehicleInCollection = collectionManager.getMin()
+        val minVehicleInCollection = collectionManager.getAll().minByOrNull { it.enginePower }
 
 
-        if (minVehicleInCollection == null || vehicle < minVehicleInCollection) { // newVehicle < minVehicle
+        if (minVehicleInCollection == null || vehicle < minVehicleInCollection) {
             try {
                 val addedVehicle = collectionManager.addVehicle(vehicle)
                 return Response("Vehicle (ID: ${vehicle.id}) added successfully as it's smaller than min. New ID: ${addedVehicle.id}")
@@ -43,5 +44,13 @@ class AddIfMinCommand : Command(
         } else {
             return Response("New vehicle (ID: ${vehicle.id}) was not added. Its value is not less than the smallest item's value (Min ID: ${minVehicleInCollection.id}).")
         }
+    }
+
+    override fun getExpectedArguments(): List<CommandArgument> {
+        return emptyList()
+    }
+
+    override fun doesRequireVehicle(): Boolean {
+        return true
     }
 }

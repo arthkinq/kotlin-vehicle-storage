@@ -1,4 +1,4 @@
-package org.example.commands
+package commands
 
 abstract class Command  (
     private val name: String,

@@ -1,4 +1,4 @@
-package org.example.IO
+package io
 
 interface OutputManager {
     fun write(text: String)

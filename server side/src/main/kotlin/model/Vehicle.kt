@@ -1,4 +1,4 @@
-package org.example.model
+package model
 
 @kotlinx.serialization.Serializable
 data class Vehicle(

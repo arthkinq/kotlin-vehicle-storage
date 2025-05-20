@@ -1,9 +1,9 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.Response
+import model.Vehicle
 
 abstract class FilterByCharacteristicCommand(
     name: String,

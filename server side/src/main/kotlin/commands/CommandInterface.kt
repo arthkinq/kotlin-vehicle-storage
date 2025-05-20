@@ -1,9 +1,10 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle
 
 interface CommandInterface {
     fun getName(): String
@@ -14,4 +15,7 @@ interface CommandInterface {
         ioManager: IOManager,
         vehicle: Vehicle? = null,
     ): Response
+
+    fun getExpectedArguments(): List<CommandArgument>
+    fun doesRequireVehicle(): Boolean
 }

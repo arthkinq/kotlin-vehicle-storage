@@ -1,4 +1,4 @@
-package org.example.core
+package common
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer

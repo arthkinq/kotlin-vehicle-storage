@@ -39,4 +39,3 @@ DeliveryDrone
 HOVERBOARD
 ALCOHOL
 show
-info

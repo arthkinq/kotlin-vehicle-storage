@@ -1,9 +1,7 @@
-package org.example
-
-import org.example.IO.IOManager
-import org.example.IO.ConsoleInputManager
-import org.example.IO.ConsoleOutputManager
-import org.example.core.*
+import io.IOManager
+import io.ConsoleInputManager
+import io.ConsoleOutputManager
+import core.*
 
 fun main() {
     val ioManager = IOManager(

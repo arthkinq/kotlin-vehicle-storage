@@ -1,4 +1,4 @@
-package org.example.IO
+package io
 
 import java.util.*
 

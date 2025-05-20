@@ -1,6 +1,8 @@
-package org.example.core
+package core
 
-import org.example.IO.IOManager
+import io.IOManager
+import common.Request
+import common.SerializationUtils
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.SocketException
@@ -187,11 +189,11 @@ class ApiServer(
                             )
 
                             val response = commandProcessor.processCommand(request.body, request.vehicle)
-                            response.updateCommands(commandProcessor.getAvailableCommandNames())
 
+                            response.clearCommandDescriptors()
+                            response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
                             val responseBufferToSend = SerializationUtils.objectToByteBuffer(response)
 
-                            // Попытка неблокирующей записи или регистрация на OP_WRITE
                             try {
                                 clientChannel.write(responseBufferToSend)
                                 if (responseBufferToSend.hasRemaining()) {
@@ -313,11 +315,11 @@ class ApiServer(
                         logger.log(Level.INFO, "AdminConsoleThread: Processing 'exitAdmin'.")
                         commandProcessor.processCommand(listOf("save"), null)
                         running = false // Устанавливаем флаг для остановки основного цикла
-                        selector?.wakeup() // Прерываем select()
-                        // serverSocketChannel?.close() // Закроется в finally основного startServer
-                        // exitProcess(0) // Не вызываем, пусть потоки завершатся
+                        selector?.wakeup()
+                        val response = commandProcessor.processCommand(listOf("save"), null)
+                        ioManager.outputLine("Save command result: ${response.responseText}")
                         logger.log(Level.INFO, "AdminConsoleThread: Server shutdown initiated.")
-                        return // Завершаем админский поток
+                        return
                     }
 
                     "saveadmin" -> {

@@ -1,9 +1,11 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import common.ArgumentType
+import core.CollectionManager
+import common.CommandArgument
+import common.Response
+import model.Vehicle
 
 class RemoveAnyByEnginePowerCommand : RemoveAnyByCharacteristicCommand(
     name = "remove_any_by_engine_power",
@@ -20,5 +22,12 @@ class RemoveAnyByEnginePowerCommand : RemoveAnyByCharacteristicCommand(
             return Response("Error: Args can be size ${size}.")
         }
          return super.execute(listOf("enginePower", args[0]), collectionManager, ioManager, null)
+    }
+    override fun getExpectedArguments(): List<CommandArgument> {
+        return listOf(CommandArgument("engine_power", ArgumentType.DOUBLE, isOptional = false))
+    }
+
+    override fun doesRequireVehicle(): Boolean {
+        return false
     }
 }

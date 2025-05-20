@@ -1,4 +1,4 @@
-package org.example.IO
+package io
 
 interface InputManager {
     fun readLine(): String?

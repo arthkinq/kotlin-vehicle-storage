@@ -1,9 +1,9 @@
-package org.example.commands
+package commands
 
-import org.example.IO.IOManager
-import org.example.core.CollectionManager
-import org.example.core.Response
-import org.example.model.Vehicle
+import io.IOManager
+import core.CollectionManager
+import common.Response
+import model.Vehicle
 
 abstract class MinByCharacteristicCommand(
     name: String,
@@ -21,7 +21,7 @@ abstract class MinByCharacteristicCommand(
         ioManager: IOManager,
         vehicle: Vehicle?
     ): Response {
-        val vehicle = collectionManager.getMin(args[0]) ?: return Response("Error: Args can be size ${size}.")
-        return Response("Element found with minimal $args[0]: $vehicle")
+        val tempVehicle = collectionManager.getMin(args[0]) ?: return Response("Error: Args can be size ${size}.")
+        return Response("Element found with minimal $args[0]: $tempVehicle")
     }
 }
