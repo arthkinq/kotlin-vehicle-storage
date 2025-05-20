@@ -3,24 +3,14 @@ import myio.ConsoleInputManager
 import myio.ConsoleOutputManager
 import core.*
 
-fun main(args: Array<String>) {
+fun main() {
     val ioManager = IOManager(
         ConsoleInputManager(),
         ConsoleOutputManager()
     )
 
-    val serverHostIp: String
-    val serverPort: Int
-    if (args.isNotEmpty() && args.size > 1) {
-        serverHostIp = args[0]
-        serverPort = args[1].toInt()
-        ioManager.outputLine("Using server IP from command line argument: $serverHostIp")
-    } else {
-        ioManager.outputInline("Enter server IP address (e.g., 192.168.1.105) or press Enter for localhost: ")
-        val userInputHost = ioManager.readLine().trim()
-        serverHostIp = userInputHost.ifBlank { "localhost" }
-        serverPort = 8888
-    }
+    val serverHostIp = "localhost"
+    val serverPort: Int = 9999
     ioManager.outputLine("Connecting to server at: $serverHostIp:$serverPort")
 
 
