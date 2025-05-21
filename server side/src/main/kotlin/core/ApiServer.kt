@@ -21,7 +21,7 @@ class ApiServer(
 
     companion object {
         private const val DEFAULT_PORT = 8888
-        private const val READ_BUFFER_CAPACITY = 4096 // Размер буфера для чтения из канала
+        private const val READ_BUFFER_CAPACITY = 4096
     }
 
     @Volatile
@@ -33,7 +33,7 @@ class ApiServer(
     // Потокобезопасные коллекции для хранения состояний клиентов
     private val clientReadStates = ConcurrentHashMap<SocketChannel, SerializationUtils.ObjectReaderState>()
     private val clientWriteBuffers =
-        ConcurrentHashMap<SocketChannel, ByteBuffer>() // Хранит ByteBuffer, который ЕЩЕ НЕ отправлен
+        ConcurrentHashMap<SocketChannel, ByteBuffer>()
 
     @Volatile
     private var running = false // Флаг для основного цикла сервера
@@ -64,10 +64,9 @@ class ApiServer(
                 try {
                     val readyChannels = selector!!.select(1000) // Таймаут, чтобы можно было проверить running
 
-                    if (!running) break // Проверка флага после select
+                    if (!running) break
 
                     if (readyChannels == 0) {
-                        // Таймаут, нет готовых каналов, продолжаем цикл
                         continue
                     }
 
@@ -91,7 +90,7 @@ class ApiServer(
                             cleanupClient(key.channel() as? SocketChannel, key)
                         } catch (e: IOException) {
                             logger.log(
-                                Level.WARNING, "IOException on channel ${key.channel()}: ${e.message}. Closing client."
+                                Level.WARNING, "IOException on channel ${key.channel()}: ${e.message}."
                             )
                             cleanupClient(key.channel() as? SocketChannel, key)
                         } catch (e: Exception) {
@@ -126,10 +125,9 @@ class ApiServer(
 
     private fun handleAccept(key: SelectionKey) {
         val serverChannel = key.channel() as ServerSocketChannel
-        val clientChannel = serverChannel.accept() // Не должен блокироваться
+        val clientChannel = serverChannel.accept()
         if (clientChannel != null) {
             clientChannel.configureBlocking(false)
-            // Регистрируем на чтение. На запись будем регистрировать по мере необходимости.
             clientChannel.register(selector, SelectionKey.OP_READ)
             clientReadStates[clientChannel] = SerializationUtils.ObjectReaderState()
             logger.log(Level.INFO, "Accepted connection from: ${clientChannel.remoteAddress}")
@@ -212,7 +210,6 @@ class ApiServer(
                                     "IOException during initial write to ${clientChannel.remoteAddress}: ${e.message}"
                                 )
                                 cleanupClient(clientChannel, key)
-                                // Не сбрасываем readState, так как объект не был полностью обработан/ответ не ушел
                                 return // Выходим из handleRead для этого клиента
                             }
                         } else {
@@ -220,21 +217,14 @@ class ApiServer(
                                 Level.WARNING,
                                 "Failed to deserialize request from ${clientChannel.remoteAddress}. Invalid data format."
                             )
-                            // Можно рассмотреть закрытие соединения при получении "мусора"
-                            // cleanupClient(clientChannel, key)
-                            // return
                         }
-                        readState.reset() // Готовимся к следующему объекту (важно сбросить состояние)
+                        readState.reset()
                     } else {
-                        // Не все байты объекта прочитали, а буфер readBuffer закончился.
-                        // Оставшиеся байты будут в readState.objectBuffer.
-                        // Выходим и ждем следующего OP_READ.
                         break
                     }
                 }
             }
         }
-        // Если numRead == 0, ничего не делаем, ждем следующего события OP_READ
     }
 
     private fun handleWrite(key: SelectionKey) {
@@ -242,8 +232,7 @@ class ApiServer(
         val buffer = clientWriteBuffers[clientChannel]
 
         if (buffer == null || !buffer.hasRemaining()) {
-            // Буфера нет или он пуст, снимаем интерес к записи.
-            clientWriteBuffers.remove(clientChannel) // Убираем пустой или отсутствующий буфер
+            clientWriteBuffers.remove(clientChannel)
             key.interestOps(SelectionKey.OP_READ)
             if (buffer != null && !buffer.hasRemaining()) {
                 logger.log(Level.FINER, "Buffer for ${clientChannel.remoteAddress} was already empty on write.")
@@ -266,10 +255,9 @@ class ApiServer(
         if (!buffer.hasRemaining()) {
             // Все данные отправлены
             clientWriteBuffers.remove(clientChannel)
-            key.interestOps(SelectionKey.OP_READ) // Больше не интересуемся записью
+            key.interestOps(SelectionKey.OP_READ)
             logger.log(Level.INFO, "Finished writing pending response to ${clientChannel.remoteAddress}")
         }
-        // Если buffer.hasRemaining(), канал остается зарегистрированным на OP_WRITE
     }
 
     private fun cleanupClient(clientChannel: SocketChannel?, key: SelectionKey?) {
@@ -328,11 +316,6 @@ class ApiServer(
                         logger.log(Level.INFO, "Save command result: ${response.responseText}")
                     }
 
-                    "serveraddress" -> {
-                        ioManager.outputLine("Admin command 'serveraddress' received.")
-                        displayServerAddresses()
-                    }
-
                     else -> {
                         if (serverAdminCommand.isNotBlank()) {
                             logger.log(Level.INFO, "AdminConsoleThread: Unknown command: '$serverAdminCommand'")
@@ -364,7 +347,7 @@ class ApiServer(
 
     private fun shutdownServerInternals() {
         logger.log(Level.INFO, "Shutting down server internals...")
-        running = false // На всякий случай, если еще не установлено
+        running = false
         try {
             selector?.let {
                 if (it.isOpen) {
@@ -391,37 +374,5 @@ class ApiServer(
         }
         clientReadStates.clear()
         clientWriteBuffers.clear()
-    }
-
-    private fun displayServerAddresses() {
-        val addresses = StringBuilder("Server Network Addresses:\n")
-        val localAddr = serverSocketChannel?.localAddress as? InetSocketAddress
-        val port = localAddr?.port ?: DEFAULT_PORT
-        val hostAddr = localAddr?.address?.hostAddress ?: "0.0.0.0" // Или InetAddress.getLocalHost().hostAddress
-
-        addresses.append("  Server is bound to: $hostAddr\n")
-        addresses.append("  Listening on port: $port\n\n")
-        addresses.append("  Potential connection addresses (for clients):\n")
-
-        try {
-            val nics = NetworkInterface.getNetworkInterfaces()
-            while (nics.hasMoreElements()) {
-                val nic = nics.nextElement()
-                if (nic.isUp && !nic.isLoopback) {
-                    nic.inetAddresses.asSequence().filter { it is java.net.Inet4Address } // Только IPv4 для простоты
-                        .forEach { inetAddress ->
-                            addresses.append("    Interface: ${nic.displayName} -> IP: ${inetAddress.hostAddress}:$port\n")
-                        }
-                }
-            }
-            // Добавляем localhost
-            addresses.append("    Loopback: localhost -> IP: ${InetAddress.getLoopbackAddress().hostAddress}:$port\n")
-
-        } catch (e: SocketException) {
-            logger.log(Level.WARNING, "SocketException while getting server addresses: ${e.message}", e)
-            addresses.append("  Could not determine all network interface addresses due to: ${e.message}\n")
-        }
-        ioManager.outputLine(addresses.toString()) // Выводим в админскую консоль
-        logger.log(Level.INFO, addresses.toString()) // И в лог сервера
     }
 }

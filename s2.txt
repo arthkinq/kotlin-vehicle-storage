@@ -35,5 +35,3 @@ show
 clear
 info
 show
-
-

@@ -45,7 +45,6 @@ class HelpCommand(private val commandProcessor: CommandProcessor) : Command(
                 responseText.append("      (this command requires providing vehicle data interactively)\n")
             }
         }
-        // Добавляем стандартные клиентские команды, если нужно
         responseText.append("  execute_script <filename> - executes a script from a file.\n")
         responseText.append("  exit - Exits the client program.\n")
 

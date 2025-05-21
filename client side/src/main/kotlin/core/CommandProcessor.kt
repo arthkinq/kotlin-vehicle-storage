@@ -40,7 +40,7 @@ class CommandProcessor(
                     commandListInitialized = true
                     message =
                         "Initial command list received (${commandRegistry.size} commands). Type 'help' for details."
-                } else if (commandRegistry.size != oldCommandRegistry.size) {
+                } else if (commandRegistry != oldCommandRegistry) {
                     message = "Client command list updated from server (${commandRegistry.size} commands)."
                 } else {
                     message = ""
@@ -84,7 +84,7 @@ class CommandProcessor(
 
             val parts = userInput.split("\\s+".toRegex(), 2)
             val commandNameInput = parts.getOrNull(0)?.lowercase() ?: ""
-            val argumentString = parts.getOrNull(1) ?: "" // Аргументы как одна строка
+            val argumentString = parts.getOrNull(1) ?: ""
 
             if (commandNameInput == "exit") {
                 ioManager.outputLine("Exiting client application...")
@@ -94,7 +94,7 @@ class CommandProcessor(
                     executeScript(argumentString)
                 } else {
                     ioManager.outputLine("Usage: execute_script <filename>")
-                    printCommandUsage(commandRegistry["execute_script"]) // Попытка вывести usage для execute_script, если он есть
+                    printCommandUsage(commandRegistry["execute_script"])
                 }
             } else if (commandNameInput.isNotBlank()) {
                 if (!commandListInitialized && commandRegistry.isEmpty()) {
@@ -193,7 +193,7 @@ class CommandProcessor(
 
         val filePathString = Paths.get(fileName).toAbsolutePath().toString()
         if (filePathString in executedScripts) {
-            ioManager.error("Recursion detected: Script '$fileName' (resolved to '$filePathString') is already running in this call chain. Aborting.") // Изменено сообщение для ясности
+            ioManager.error("Recursion detected: Script '$fileName' (resolved to '$filePathString') is already running in this call chain. Aborting.")
             return
         }
 
@@ -211,13 +211,13 @@ class CommandProcessor(
         } catch (e: InvalidPathException) {
             ioManager.error("Invalid script file path '$fileName': ${e.message}")
             return
-        } catch (e: SecurityException) { // Более специфичный catch для проблем с доступом
+        } catch (e: SecurityException) {
             ioManager.error("Security error accessing script file '$fileName': ${e.message}")
             return
-        } catch (e: IOException) { // Для других ошибок ввода-вывода при доступе к файлу
+        } catch (e: IOException) {
             ioManager.error("IO error accessing script file '$fileName': ${e.message}")
             return
-        } catch (e: Exception) { // Общий catch для непредвиденных ошибок
+        } catch (e: Exception) {
             ioManager.error("Unexpected error accessing script file '$fileName': ${e.message}")
             return
         }
@@ -262,7 +262,7 @@ class CommandProcessor(
                     }
                 }
             }
-        } catch (e: Exception) { // Этот catch для ошибок *во время выполнения* скрипта
+        } catch (e: Exception) {
             ioManager.error("Error during script execution '$fileName': ${e.message}")
         } finally {
             ioManager.setInput(originalInputManager)

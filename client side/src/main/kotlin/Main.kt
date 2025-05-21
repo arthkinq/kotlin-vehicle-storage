@@ -1,7 +1,8 @@
+import core.ApiClient
+import core.CommandProcessor
 import myio.IOManager
 import myio.ConsoleInputManager
 import myio.ConsoleOutputManager
-import core.*
 
 fun main() {
     val ioManager = IOManager(
@@ -10,7 +11,7 @@ fun main() {
     )
 
     val serverHostIp = "localhost"
-    val serverPort: Int = 9999
+    val serverPort = 8888
     ioManager.outputLine("Connecting to server at: $serverHostIp:$serverPort")
 
 

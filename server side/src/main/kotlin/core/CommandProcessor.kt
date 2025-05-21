@@ -65,10 +65,6 @@ class CommandProcessor(
         val commandArgs = commandBody.drop(1)
 
         logger.log(Level.INFO, "CommandProcessor: Processing command '$commandName' with args: $commandArgs")
-        if (vehicleFromRequest != null) {
-            logger.log(Level.INFO, "CommandProcessor: Vehicle data received: $vehicleFromRequest")
-        }
-
 
         val command = commandsList[commandName] ?: run {
             logger.log(Level.WARNING, "CommandProcessor: Unknown command '$commandName'.")
@@ -83,17 +79,13 @@ class CommandProcessor(
             return Response("Error: Command '$commandName' requires vehicle data, but it was not sent by the client.")
         }
         return try {
-            // Выполнение команды
-            // ioManagerForLogging передается в команду, если ей нужно что-то логировать или выводить на сервере
-            // (например, команда save может сообщить о результате сохранения в консоль сервера)
             command.execute(
                 args = commandArgs,
                 collectionManager = collectionManager,
-                ioManager = ioManagerForLogging, // Для логирования внутри команды
-                vehicle = vehicleFromRequest     // Передаем объект Vehicle
+                ioManager = ioManagerForLogging,
+                vehicle = vehicleFromRequest
             )
         } catch (e: Exception) {
-            // Перехватываем любые неожиданные ошибки при выполнении команды
             logger.log(
                 Level.SEVERE,
                 "CommandProcessor: Critical error executing command '$commandName': ${e.message}\n${e.stackTraceToString()}"

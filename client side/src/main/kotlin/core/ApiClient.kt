@@ -28,12 +28,11 @@ class ApiClient(
         private const val RECONNECT_DELAY_MS = 5000L
         private const val SELECTOR_RECOVERY_DELAY_MS = 3000L
         private const val DEFAULT_REQUEST_TIMEOUT_MS = 10000L
-        private const val SELECT_TIMEOUT_MS = 1000L // Таймаут для selector.select()
+        private const val SELECT_TIMEOUT_MS = 1000L
     }
 
-    @Volatile // Используем Volatile для running, т.к. он читается из разных потоков
-    private var running = true // Простой boolean, управляемый извне (CommandProcessor)
-    // и изнутри (при критических ошибках nioThread)
+    @Volatile // Используем Volatile для running тк он читается из разных потоков
+    private var running = true
 
     private val connected = AtomicBoolean(false)
     private val connectionPending = AtomicBoolean(false)
@@ -52,19 +51,17 @@ class ApiClient(
         null
 
     init {
-        logger.level = Level.WARNING // Или Level.INFO для более детального логгирования
+        logger.level = Level.WARNING
         try {
             selector = Selector.open()
             nioThread = Thread { clientSelectorLoop() }.apply {
                 name = "ClientNIOThread"
                 start()
             }
-            // Немедленно инициируем попытку подключения, если селектор создан
-            // Это будет сделано в clientSelectorLoop, чтобы избежать гонки состояний
         } catch (e: IOException) {
             logger.log(Level.SEVERE, "ApiClient: CRITICAL - Failed to open Selector during initialization.", e)
             ioManager.error("ApiClient: Critical error during initialization: ${e.message}. Client will not be able to connect.")
-            running = false // Не сможем работать
+            running = false
         } catch (e: Exception) {
             logger.log(Level.SEVERE, "ApiClient: CRITICAL - Unexpected error during initialization.", e)
             ioManager.error("ApiClient: Unexpected critical error during initialization: ${e.message}. Client may not function.")
@@ -143,16 +140,15 @@ class ApiClient(
     private fun SocketChannel.closeQuietly() {
         try {
             if (isOpen) this.close()
-        } catch (e: IOException) { /* ignore */
+        } catch (e: IOException) { // ignore
         }
     }
 
     private fun completeConnectionSetup(key: SelectionKey?) {
         connectionPending.set(false)
-        // connected.set(true) // будет установлено в updateConnectionStatus
         currentResponseState = SerializationUtils.ObjectReaderState()
         updateConnectionStatus(true, "Successfully connected to server.")
-        logger.log(Level.INFO, "ApiClient: Connection setup complete.")
+        logger.log(Level.INFO, "ApiClient: Connection to server complete.")
 
         requestCommandDescriptorsUpdate()
 
@@ -165,7 +161,7 @@ class ApiClient(
 
         try {
             val currentChannel = this.channel
-            val currentSelector = this.selector // Используем this. для полей класса
+            val currentSelector = this.selector
             if (currentChannel != null && currentChannel.isOpen && currentSelector != null && currentSelector.isOpen) {
                 val existingKey = if (key?.isValid == true) key else currentChannel.keyFor(currentSelector)
 
@@ -193,7 +189,7 @@ class ApiClient(
     }
 
     private fun requestCommandDescriptorsUpdate() {
-        val currentSel = selector // Локальная копия для безопасного использования
+        val currentSel = selector
         val currentChan = channel
         if (!connected.get() || currentChan == null || !currentChan.isOpen || currentSel == null || !currentSel.isOpen) {
             logger.log(Level.WARNING, "ApiClient: Cannot request command descriptors, preconditions not met.")
@@ -205,7 +201,7 @@ class ApiClient(
         synchronized(pendingRequests) {
             pendingRequests.addFirst(requestBuffer)
         }
-        currentChan.keyFor(currentSel)?.let { key -> // Используем currentSel
+        currentChan.keyFor(currentSel)?.let { key ->
             if (key.isValid && (key.interestOps() and SelectionKey.OP_WRITE) == 0) {
                 key.interestOps(key.interestOps() or SelectionKey.OP_WRITE)
             }
@@ -214,10 +210,10 @@ class ApiClient(
     }
 
     private fun clientSelectorLoop() {
-        logger.log(Level.INFO, "ApiClient: NIOEventLoop started.")
+        logger.log(Level.INFO, "ApiClient: NIO event loop started.")
         var lastReconnectAttemptTime = 0L
         var lastSelectorRecoveryAttemptTime =
-            System.currentTimeMillis() // Инициализируем, чтобы не сразу восстанавливать
+            System.currentTimeMillis()
 
         while (running) {
             try {
@@ -245,7 +241,7 @@ class ApiClient(
                             )
                             running = false // Критическая ошибка, если селектор не восстановить
                             updateConnectionStatus(false, "CRITICAL: Failed to recover selector. Client stopping.")
-                            break // Выход из цикла while(running)
+                            break
                         }
                     } else {
                         Thread.sleep(SELECT_TIMEOUT_MS)
@@ -268,7 +264,6 @@ class ApiClient(
                 }
 
                 val readyCount = selectorToUse.select(SELECT_TIMEOUT_MS)
-
 
                 if (!running) break
                 if (readyCount == 0) continue
@@ -299,7 +294,7 @@ class ApiClient(
                 }
             } catch (e: ClosedSelectorException) {
                 logger.log(Level.WARNING, "ApiClient: Selector closed during select. Will attempt recovery.")
-                selector = null // Помочь логике восстановления
+                selector = null
                 updateConnectionStatus(false, "Selector closed; attempting recovery.")
             } catch (e: IOException) {
                 logger.log(Level.WARNING, "ApiClient: IOException in selector loop (select() failed?): ${e.message}", e)
@@ -312,9 +307,8 @@ class ApiClient(
                 break
             }
         }
-        logger.log(Level.INFO, "ApiClient: NIOEventLoop finishing.")
         cleanupResources()
-        logger.log(Level.INFO, "ApiClient: NIOEventLoop finished and resources cleaned.")
+        logger.log(Level.INFO, "ApiClient: NIO event loop finished and resources cleaned.")
         updateConnectionStatus(false, "Client stopped.")
     }
 
@@ -341,7 +335,6 @@ class ApiClient(
     }
 
     private fun handleRead(key: SelectionKey) {
-        // ... (код из предыдущего ответа, он корректен, включая вызов onCommandsUpdated)
         val socketChannel = key.channel() as SocketChannel
         val tempBuffer = ByteBuffer.allocate(READ_BUFFER_CAPACITY_CLIENT)
         val state = currentResponseState ?: run {
@@ -360,7 +353,7 @@ class ApiClient(
         }
 
         if (numRead == -1) {
-            val errorMsg = "Server closed connection (EOF)."
+            val errorMsg = "Server closed connection."
             logger.log(Level.INFO, "ApiClient: $errorMsg")
             handleDisconnect(key, errorMsg)
             return
@@ -370,7 +363,7 @@ class ApiClient(
             logger.log(Level.FINER, "ApiClient: Read $numRead bytes from server.")
             while (tempBuffer.hasRemaining()) {
                 if (!state.isLengthRead) {
-                    if (state.readLengthFromBuffer(tempBuffer)) { // handle IOEx here
+                    if (state.readLengthFromBuffer(tempBuffer)) {
                         logger.log(Level.FINER, "ApiClient: Response length ${state.expectedLength} received.")
                     } else break
                 }
@@ -379,8 +372,8 @@ class ApiClient(
                         logger.log(Level.FINER, "ApiClient: Response object bytes received.")
                         val response = state.deserializeObject<Response>()
                         if (response != null) {
-                            if (response.commandDescriptors.isNotEmpty()) { // Используем новое поле из Response
-                                onCommandDescriptorsUpdated?.invoke(response.commandDescriptors) // Используем новый callback
+                            if (response.commandDescriptors.isNotEmpty()) {
+                                onCommandDescriptorsUpdated?.invoke(response.commandDescriptors)
                                 logger.log(
                                     Level.INFO,
                                     "ApiClient: Command descriptors updated. Count: ${response.commandDescriptors.size}"
@@ -410,7 +403,6 @@ class ApiClient(
     }
 
     private fun handleWrite(key: SelectionKey) {
-        // ... (код из предыдущего ответа, он корректен)
         val socketChannel = key.channel() as SocketChannel
         synchronized(pendingRequests) {
             val bufferToSend = pendingRequests.peekFirst()
@@ -445,7 +437,6 @@ class ApiClient(
         key?.cancel()
         channel?.closeQuietly()
         channel = null
-        // connected.set(false) // уже сделано в updateConnectionStatus
         connectionPending.set(false)
         currentResponseState?.reset()
 
@@ -466,8 +457,6 @@ class ApiClient(
 
         if (!connected.get()) {
             ioManager.outputLine("ApiClient: Not currently connected. Request will be queued.")
-            // Запрос будет отправлен, когда nioThread подключится и обработает очередь.
-            // Нет активного ожидания здесь, чтобы не блокировать вызывающий поток.
         }
 
         val requestBuffer = SerializationUtils.objectToByteBuffer(request)
@@ -509,7 +498,7 @@ class ApiClient(
 
             if (!responseAvailable.get()) {
                 val statusMsg =
-                    if (!connected.get()) "Disconnected while waiting (or request not sent)." else "Timeout waiting for server response."
+                    if (!connected.get()) "Disconnected while waiting or request not sent." else "Timeout waiting for server response."
                 ioManager.error("ApiClient: $statusMsg")
                 return null
             }
