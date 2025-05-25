@@ -41,8 +41,11 @@ object DatabaseManager {
         }
     }
     private fun initializeDatabase() {
+        /* try с параметрами от котлина */
         getConnection().use { conn ->
+            /* connection с try с параметрами */
             conn.createStatement().use { stmt ->
+                /* statment с параметрами и траем */
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,

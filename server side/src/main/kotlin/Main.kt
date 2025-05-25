@@ -1,6 +1,7 @@
 import core.CommandProcessor
 import core.ApiServer
 import db.DatabaseManager
+import db.UserDAO
 import myio.ConsoleInputManager
 import myio.ConsoleOutputManager
 import myio.IOManager
