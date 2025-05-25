@@ -1,10 +1,13 @@
 import core.CommandProcessor
 import core.ApiServer
+import db.DatabaseManager
 import myio.ConsoleInputManager
 import myio.ConsoleOutputManager
 import myio.IOManager
 
+//TODO: крч я тут хуйни наверняка добавила надо делитнуть в онце
 fun main() {
+    val c = DatabaseManager.getConnection()
     val serverIoManager = IOManager(
         ConsoleInputManager(),
         ConsoleOutputManager()
@@ -12,8 +15,6 @@ fun main() {
 
     val collectionFileName = "Collection.csv"
     val networkCommandProcessor = CommandProcessor(serverIoManager, collectionFileName)
-
-
     Thread {
         ApiServer(networkCommandProcessor, serverIoManager).startServer()
     }.start()
