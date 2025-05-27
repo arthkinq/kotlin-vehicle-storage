@@ -40,10 +40,10 @@ class VehicleService (private val vehicleDAO: VehicleDAO) {
         logger.warning { "Failed to add vehicle ${newVehicle.name}" }
         return null
     }
-    fun updateVehicleById(vehicle: Vehicle, userId: Int): Boolean {
-        val vehicleToUpdate = vehicleDAO.getVehicleById(vehicle.id)
+    fun updateVehicleById(id: Int, vehicle: Vehicle, userId: Int?): Boolean {
+        val vehicleToUpdate = vehicleDAO.getVehicleById(id)
         if (vehicleToUpdate == null) { return false}
-        if(vehicleToUpdate.id != vehicle.id){
+        if(vehicleToUpdate.userId != userId){
             logger.warning("User $userId to update vehicle ${vehicle.id} owned by ${vehicleToUpdate.userId}" )
             return false
         }
@@ -176,8 +176,10 @@ class VehicleService (private val vehicleDAO: VehicleDAO) {
             vehiclesCache.remove(vehicleToDelete.id)
         }
     }
-    fun isEmpry() : Boolean {
-        return vehiclesCache.isEmpty
+    fun isEmpty() : Boolean {
+        synchronized(cacheLock) {
+            return vehiclesCache.isEmpty()
+        }
     }
 
 }

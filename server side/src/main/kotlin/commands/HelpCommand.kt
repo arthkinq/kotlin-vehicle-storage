@@ -5,6 +5,7 @@ import common.ArgumentType
 import common.CommandArgument
 import common.Response
 import core.*
+import core.CommandProcessor
 import model.Vehicle
 
 class HelpCommand(private val commandProcessor: CommandProcessor) : Command(

@@ -4,6 +4,7 @@ import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle // Импорт нужен, если Vehicle используется в сигнатуре execute
 
 class ShowCommand : Command(
@@ -13,19 +14,20 @@ class ShowCommand : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: '${getName()}' command takes no arguments.")
         }
 
-        if (collectionManager.isEmpty()) {
+        if (vehicleService.isEmpty()) {
             return Response("Collection is empty.")
         } else {
             val stringBuilder = StringBuilder("Vehicles in collection (sorted by name):\n")
-            collectionManager.getAll()
+            vehicleService.getAll()
                 .sortedBy { it.name}
                 .forEach { item ->
                     stringBuilder.append("$item\n")
