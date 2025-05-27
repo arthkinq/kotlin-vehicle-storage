@@ -9,7 +9,8 @@ data class Vehicle(
     var enginePower: Double,
     var distanceTravelled: Double?,
     var type: VehicleType?,
-    var fuelType: FuelType?
+    var fuelType: FuelType?,
+    var userId: Int
 ) : Comparable<Vehicle>{
     init {
         require(id >= 0) { "ID must be positive" }
