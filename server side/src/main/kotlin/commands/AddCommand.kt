@@ -4,6 +4,7 @@ import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class AddCommand : Command(
@@ -13,28 +14,21 @@ class AddCommand : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: '${getName()}' command takes no string arguments when a vehicle object is provided.")
         }
-
-        if (vehicle == null) {
-            ioManager.error("AddCommand: Vehicle object is null in the request.")
-            return Response("Error: Vehicle data is missing in the request for 'add' command.")
-        }
-
-        try {
-            val addedVehicle = collectionManager.addVehicle(vehicle)
-            return Response("Vehicle added successfully with ID: ${addedVehicle.id}")
-        } catch (e: IllegalArgumentException) {
-            ioManager.error("AddCommand: Error adding vehicle - ${e.message}")
-            return Response("Error adding vehicle: ${e.message}")
-        } catch (e: Exception) {
-            ioManager.error("AddCommand: Unexpected error adding vehicle - ${e.message}")
-            return Response("An unexpected error occurred while adding the vehicle.")
+        if (vehicle == null) return Response("Error: Vehicle data is required for add command.")
+        if (userId == null) return Response("Error: User authentication required to add elements.")
+        val addedVehicle = vehicleService.addVehicle(vehicle, userId)
+        return if(addedVehicle != null) {
+            Response("Vehicle '${addedVehicle.name}' (ID: ${addedVehicle.id}) added successfully by user $userId.")
+        } else {
+            Response("Error: Could not add vehicle to the collection.")
         }
     }
 

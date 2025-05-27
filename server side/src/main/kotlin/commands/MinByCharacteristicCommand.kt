@@ -3,6 +3,7 @@ package commands
 import myio.IOManager
 import core.CollectionManager
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 abstract class MinByCharacteristicCommand(
@@ -17,11 +18,12 @@ abstract class MinByCharacteristicCommand(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
-        val tempVehicle = collectionManager.getMin(args[0]) ?: return Response("Error: Args can be size ${size}.")
+        val tempVehicle = vehicleService.getMin(args[0]) ?: return Response("Error: Args can be size ${size}.")
         return Response("Element found with minimal $args[0]: $tempVehicle")
     }
 }

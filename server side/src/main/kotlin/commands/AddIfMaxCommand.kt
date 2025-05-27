@@ -4,6 +4,7 @@ import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class AddIfMaxCommand : Command(
@@ -14,26 +15,27 @@ class AddIfMaxCommand : Command(
 
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: '${getName()}' command takes no string arguments when a vehicle object is provided.")
         }
-
+        if (vehicle == null) return Response("Error: Vehicle data is required for add command.")
+        if (userId == null) return Response("Error: User authentication required to add elements.")
         if (vehicle == null) {
             ioManager.error("AddIfMaxCommand: Vehicle object is null in the request.")
             return Response("Error: Vehicle data is missing in the request for '${getName()}' command.")
         }
 
-        val maxExistingByEnginePower = collectionManager.getAll().maxByOrNull { it.enginePower }
+        val maxExistingByEnginePower = vehicleService.getMax("enginePower")
 
         if (maxExistingByEnginePower == null || vehicle.enginePower > maxExistingByEnginePower.enginePower) {
-            // Add the vehicle
             try {
-                val addedVehicle = collectionManager.addVehicle(vehicle) // 'vehicle' is from client
-                return Response("Vehicle added with new ID: ${addedVehicle.id}")
+                val addedVehicle = vehicleService.addVehicle(vehicle, userId)
+                return Response("Vehicle added with new ID: ${addedVehicle?.id}")
             } catch (e: IllegalArgumentException) {
                 ioManager.error("AddIfMax: Error adding: ${e.message}")
                 return Response("Error adding vehicle: ${e.message}")

@@ -3,6 +3,7 @@ package commands
 import myio.IOManager
 import core.CollectionManager
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 abstract class RemoveAnyByCharacteristicCommand(
@@ -16,16 +17,20 @@ abstract class RemoveAnyByCharacteristicCommand(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (args.isEmpty() || args.size != 2) {
             return Response("Error: Args can be size ${size}.")
         }
-        val vehicletmp = collectionManager.findByCharacteristic(args[0], args[1])
+        val vehicletmp = vehicleService.findByCharacteristic(args[0], args[1])
             ?: return Response("No vehicle found with $args[0] = $args[1]")
-        collectionManager.deleteElement(vehicletmp)
+        if(userId == null) {
+            return Response("Please login to continue")
+        }
+        vehicleService.removeVehicle(vehicletmp.id, userId)
         return Response("Element removed: $vehicletmp")
     }
 }

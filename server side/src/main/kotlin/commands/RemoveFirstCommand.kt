@@ -4,6 +4,7 @@ import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class RemoveFirstCommand : Command(
@@ -13,18 +14,19 @@ class RemoveFirstCommand : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
-        if (collectionManager.isEmpty()) {
+        if (vehicleService.isEmpty()) {
             return Response("No element in the collection.")
 
         }
-        collectionManager.deleteByNumber(0)
+        vehicleService.deleteByNumber(0)
         return Response("First element removed.")
 
 

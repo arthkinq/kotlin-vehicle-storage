@@ -4,6 +4,7 @@ import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class AddIfMinCommand : Command(
@@ -14,26 +15,29 @@ class AddIfMinCommand : Command(
 
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: '${getName()}' command takes no string arguments when a vehicle object is provided.")
         }
 
+        if (vehicle == null) return Response("Error: Vehicle data is required for add command.")
+        if (userId == null) return Response("Error: User authentication required to add elements.")
         if (vehicle == null) {
             ioManager.error("AddIfMinCommand: Vehicle object is null in the request.") // Лог на сервере
             return Response("Error: Vehicle data is missing in the request for '${getName()}' command.")
         }
 
-        val minVehicleInCollection = collectionManager.getAll().minByOrNull { it.enginePower }
+        val minVehicleInCollection = vehicleService.getMin("enginePower")
 
 
         if (minVehicleInCollection == null || vehicle < minVehicleInCollection) {
             try {
-                val addedVehicle = collectionManager.addVehicle(vehicle)
-                return Response("Vehicle (ID: ${vehicle.id}) added successfully as it's smaller than min. New ID: ${addedVehicle.id}")
+                val addedVehicle = vehicleService.addVehicle(vehicle, userId)
+                return Response("Vehicle (ID: ${vehicle.id}) added successfully as it's smaller than min. New ID: ${addedVehicle?.id}")
             } catch (e: IllegalArgumentException) {
                 ioManager.error("AddIfMinCommand: Error adding vehicle - ${e.message}")
                 return Response("Error adding vehicle: ${e.message}")

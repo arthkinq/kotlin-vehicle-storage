@@ -5,6 +5,7 @@ import myio.IOManager
 import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 import java.time.Instant
 import java.time.ZoneId
@@ -17,18 +18,19 @@ class InfoCommand : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
         var response =
-            "Info: \n Collection type: ${collectionManager.getAll()::class.simpleName} \n Amount of elements: ${collectionManager.size()} \n"
+            "Info: \n Collection type: ${vehicleService.getAll()::class.simpleName} \n Amount of elements: ${vehicleService.size()} \n"
 
-        if (collectionManager.getAll().isNotEmpty()) {
-            val readableDate = Instant.ofEpochMilli(collectionManager.getAll().first().creationDate)
+        if (vehicleService.getAll().isNotEmpty()) {
+            val readableDate = Instant.ofEpochMilli(vehicleService.getAll().first().creationDate)
                 .atZone(ZoneId.of("UTC"))
                 .toLocalDateTime()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
