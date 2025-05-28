@@ -6,7 +6,6 @@ import myio.ConsoleInputManager
 import myio.ConsoleOutputManager
 import myio.IOManager
 
-//TODO: крч я тут хуйни наверняка добавила надо делитнуть в онце
 fun main() {
     val serverIoManager = IOManager(
         ConsoleInputManager(),

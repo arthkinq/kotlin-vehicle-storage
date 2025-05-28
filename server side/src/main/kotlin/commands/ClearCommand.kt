@@ -23,7 +23,7 @@ class ClearCommand : Command(
         }
         if(userId != null) {
             vehicleService.clearUserVehicles(userId)
-            return Response("Collection is clear.")
+            return Response("Your items in collection were removed.")
         }
         return Response("Error: UserID can't be empty.")
     }

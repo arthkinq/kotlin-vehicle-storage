@@ -5,7 +5,7 @@ import model.Vehicle
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
-/* работает с vehicleDAO чтобы обновлять все в бд, а только потом в Tommy Cache*/
+/* работает с vehicleDAO чтобы обновлять все в бд, а только потом в кэш*/
 
 class VehicleService (private val vehicleDAO: VehicleDAO) {
     private val logger = Logger.getLogger(VehicleService::class.java.name)
@@ -167,15 +167,20 @@ class VehicleService (private val vehicleDAO: VehicleDAO) {
             }
         }
     }
-    fun deleteByNumber(number: Int) {
+
+    fun deleteByNumber(number: Int, userId: Int): Boolean {
         synchronized(cacheLock) {
             if (vehiclesCache.isEmpty() || number < 0 || number >= vehiclesCache.size) {
-                return // Невалидный индекс
+                return false // Невалидный индекс
             }
 
             val sortedVehicles = vehiclesCache.values.sortedBy { it.id }
             val vehicleToDelete = sortedVehicles[number]
-            vehiclesCache.remove(vehicleToDelete.id)
+            if(vehicleToDelete.userId==userId) {
+                vehiclesCache.remove(vehicleToDelete.id)
+                return true
+            }
+            return false
         }
     }
     fun isEmpty() : Boolean {

@@ -28,6 +28,8 @@ abstract class RemoveAnyByCharacteristicCommand(
             ?: return Response("No vehicle found with $args[0] = $args[1]")
         if(userId == null) {
             return Response("Please login to continue")
+        } else if (userId != vehicletmp.userId) {
+            return Response("You can\'t delete someone else\'s object.")
         }
         vehicleService.removeVehicle(vehicletmp.id, userId)
         return Response("Element removed: $vehicletmp")

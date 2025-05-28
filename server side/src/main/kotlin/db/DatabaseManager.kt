@@ -6,7 +6,6 @@ import java.sql.SQLException
 import java.util.logging.Logger
 
 /* Будет хранить информацимю о БД, менять ее, создавать, хранить юзеров */
-//TODO: на геолиосе сменить порт/хост/имя, либо сделать все автоматом через boolean
 object DatabaseManager {
     private const val DB_HOST = "pg"
     private const val DB_NAME = "studs"

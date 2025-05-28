@@ -25,10 +25,17 @@ class RemoveFirstCommand : Command(
             return Response("No element in the collection.")
 
         }
-        vehicleService.deleteByNumber(0)
-        return Response("First element removed.")
-
-
+        val vehicletmp = vehicleService.findByCharacteristic(args[0], args[1])
+            ?: return Response("No vehicle found with $args[0] = $args[1]")
+        if(userId == null) {
+            return Response("Please login to continue")
+        } else if (userId != vehicletmp.userId) {
+            return Response("You can't delete someone else's object.")
+        }
+        if(vehicleService.deleteByNumber(0, userId)) {
+            return Response("First element removed.")
+        }
+        return Response("Can't remove first element.")
     }
 
     override fun getExpectedArguments(): List<CommandArgument> {

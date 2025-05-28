@@ -7,7 +7,7 @@ import java.util.logging.Logger
 
 
 /* добавление новых пользователей*/
-/* DAO - паттерн проектирования, абстрактный интерфейс к типу данных из бд*/
+
 class UserDAO {
     private val logger = Logger.getLogger(this.javaClass.name)
     /* Функция возвращает объект User или null если объект не добавлен*/
