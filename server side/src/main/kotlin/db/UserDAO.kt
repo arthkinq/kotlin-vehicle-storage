@@ -18,7 +18,7 @@ class UserDAO {
         val sql = "INSERT INTO users (username, password_hash) VALUES (?, ?)"
         try {
             DatabaseManager.getConnection().use { connection ->
-                connection.prepareStatement(sql).use { statement ->
+                connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS).use { statement ->
                     statement.setString(1, username)
                     statement.setString(2, hashedPassword)
                     statement.executeUpdate()
@@ -26,7 +26,7 @@ class UserDAO {
                         if(generatedKeys.next()) {
                             val id = generatedKeys.getInt("id")
                             logger.info("User $username $id has been added to database.")
-                            return User(id, username, password)
+                            return User(id, username, hashedPassword)
                         } else {
                             logger.warning("Creating user failed. $username $password")
                             return null
