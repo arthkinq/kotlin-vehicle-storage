@@ -17,7 +17,6 @@ class CommandProcessor(
     private val ioManager: IOManager
 ) {
     private val vehicleReader: VehicleReader = VehicleReader(ioManager)
-
     private val maxRecursionDepth = 5
     private var recursionDepth = 0
     private val executedScripts = mutableSetOf<String>()
@@ -27,9 +26,10 @@ class CommandProcessor(
 
     @Volatile
     private var commandListInitialized = false
-
     @Volatile
     private var currentlyConnected = false
+    private var currentUsername: String? = null
+    private var currentPassword: String? = null
 
     init {
         apiClient.onCommandDescriptorsUpdated = { newDescriptors ->
@@ -38,8 +38,7 @@ class CommandProcessor(
             if (newDescriptors.isNotEmpty()) {
                 if (!commandListInitialized) {
                     commandListInitialized = true
-                    message =
-                        "Initial command list received (${commandRegistry.size} commands). Type 'help' for details."
+                    message = "Initial command list received (${commandRegistry.size} commands). Type 'help' for details."
                 } else if (commandRegistry != oldCommandRegistry) {
                     message = "Client command list updated from server (${commandRegistry.size} commands)."
                 } else {
@@ -53,14 +52,16 @@ class CommandProcessor(
                 }
                 if (commandListInitialized && newDescriptors.isEmpty()) commandListInitialized = false
             }
-            ioManager.outputLine(message)
+            if (message.isNotBlank()) ioManager.outputLine(message)
         }
 
         apiClient.onConnectionStatusChanged = { isConnected, msg ->
             currentlyConnected = isConnected
             ioManager.outputLine("Network: ${msg ?: if (isConnected) "Connection established." else "Disconnected."}")
             if (!isConnected) {
-                ioManager.outputLine("Command list might be outdated due to disconnection.")
+                ioManager.outputLine("Command list might be outdated due to disconnection. Credentials cleared.")
+                currentUsername = null
+                currentPassword = null
             }
         }
     }
@@ -76,49 +77,102 @@ class CommandProcessor(
 
     fun start() {
         ioManager.outputLine("Transport Manager Client. Type 'exit' to quit.")
+        ioManager.outputLine("Available local commands: register, login, exit, execute_script")
+        ioManager.outputLine("Other commands are fetched from the server after connection.")
+
 
         var continueExecution = true
         while (continueExecution) {
-            ioManager.outputInline("> ")
+            val promptUser = currentUsername ?: "Guest"
+            ioManager.outputInline("$promptUser > ")
             val userInput = ioManager.readLine().trim()
 
             val parts = userInput.split("\\s+".toRegex(), 2)
             val commandNameInput = parts.getOrNull(0)?.lowercase() ?: ""
             val argumentString = parts.getOrNull(1) ?: ""
 
-            if (commandNameInput == "exit") {
-                ioManager.outputLine("Exiting client application...")
-                continueExecution = false
-            } else if (commandNameInput == "execute_script") {
-                if (argumentString.isNotBlank()) {
-                    executeScript(argumentString)
-                } else {
-                    ioManager.outputLine("Usage: execute_script <filename>")
-                    printCommandUsage(commandRegistry["execute_script"])
+            when (commandNameInput) {
+                "exit" -> {
+                    ioManager.outputLine("Exiting client application...")
+                    continueExecution = false
                 }
-            } else if (commandNameInput.isNotBlank()) {
-                if (!commandListInitialized && commandRegistry.isEmpty()) {
-                    val statusMessage = if (!currentlyConnected) {
-                        "Still attempting to connect and fetch command list from server."
+                "register" -> handleAuthCommand("register", argumentString)
+                "login" -> handleAuthCommand("login", argumentString)
+                "execute_script" -> {
+                    if (argumentString.isNotBlank()) {
+                        executeScript(argumentString)
                     } else {
-                        "Connected, but command list not yet received. Please wait or try 'help' soon."
+                        ioManager.outputLine("Usage: execute_script <filename>")
                     }
-                    ioManager.outputLine("$statusMessage Your command '$commandNameInput' might not be recognized yet.")
                 }
-                processSingleCommand(commandNameInput, argumentString)
+                else -> {
+                    if (commandNameInput.isNotBlank()) {
+                        if (!commandListInitialized && commandRegistry.isEmpty() && currentUsername == null) {
+                            val statusMessage = if (!currentlyConnected) {
+                                "Still attempting to connect. Please login or register first."
+                            } else {
+                                "Connected, but command list not yet received. Please login/register or wait."
+                            }
+                            ioManager.outputLine("$statusMessage Your command '$commandNameInput' might not be recognized yet.")
+                        }
+                        processSingleCommand(commandNameInput, argumentString)
+                    }
+                }
             }
         }
         ioManager.outputLine("Client command loop finished.")
         apiClient.close()
     }
 
+    private fun handleAuthCommand(commandName: String, argumentString: String) {
+        val args = argumentString.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+        if (args.size != 2) {
+            ioManager.error("Usage: $commandName <username> <password>")
+            return
+        }
+        val tempUsername = args[0]
+        val tempPassword = args[1]
+
+        val request = Request(
+            body = listOf(commandName, tempUsername, tempPassword),
+            username = tempUsername,
+            password = tempPassword
+        )
+
+        val response = apiClient.sendRequestAndWaitForResponse(request)
+        if (response != null) {
+            ioManager.outputLine(response.responseText)
+            if (commandName == "login" && !response.responseText.startsWith("Error:")) {
+                currentUsername = tempUsername
+                currentPassword = tempPassword
+                ioManager.outputLine("Credentials stored for this session.")
+            } else if (commandName == "login" && response.responseText.startsWith("Error:")) {
+                currentUsername = null
+                currentPassword = null
+            }
+        } else {
+            ioManager.error("No response from server for $commandName command or request timed out.")
+        }
+    }
+
+
     private fun processSingleCommand(commandNameInLowercase: String, argumentString: String) {
+        if (currentUsername == null || currentPassword == null) {
+            if (commandNameInLowercase != "help") {
+                ioManager.error("Error: You must be logged in to execute commands. Use 'login <username> <password>'.")
+                return
+            } else {
+                ioManager.outputLine("Available local commands: register, login, exit, execute_script")
+                ioManager.outputLine("Other commands are fetched from the server after connection.")
+                return
+            }
+        }
+
         val descriptor = commandRegistry[commandNameInLowercase]
         if (descriptor == null) {
             val baseMsg = "Command '$commandNameInLowercase' is not recognized by the client."
-            val suggestion =
-                if (commandListInitialized || commandRegistry.isNotEmpty()) "Type 'help' for available commands."
-                else "Command list not yet received from server, or command is invalid."
+            val suggestion = if (commandListInitialized || commandRegistry.isNotEmpty()) "Type 'help' for available commands."
+            else "Command list not yet received from server, or command is invalid."
             ioManager.outputLine("$baseMsg $suggestion")
             return
         }
@@ -131,8 +185,7 @@ class CommandProcessor(
         }
 
         val minRequiredArgs = descriptor.arguments.count { !it.isOptional && it.type != ArgumentType.NO_ARGS }
-        val maxTotalArgs =
-            if (descriptor.arguments.any { it.type == ArgumentType.NO_ARGS }) 0 else descriptor.arguments.size
+        val maxTotalArgs = if (descriptor.arguments.any { it.type == ArgumentType.NO_ARGS }) 0 else descriptor.arguments.size
 
         if (providedArgs.size < minRequiredArgs || (maxTotalArgs > 0 && providedArgs.size > maxTotalArgs)) {
             ioManager.error("Error: Invalid number of arguments for command '${descriptor.name}'.")
@@ -144,7 +197,6 @@ class CommandProcessor(
 
         if (descriptor.requiresVehicleObject) {
             ioManager.outputLine("Command '${descriptor.name}' requires vehicle data.")
-
             ioManager.outputLine("Please enter data for the vehicle:")
             vehicleForRequest = vehicleReader.readVehicle()
 
@@ -155,12 +207,21 @@ class CommandProcessor(
 
         val request = Request(
             body = listOf(descriptor.name) + finalArgsForServer,
-            vehicle = vehicleForRequest
+            vehicle = vehicleForRequest,
+            username = currentUsername,
+            password = currentPassword
         )
 
         val response = apiClient.sendRequestAndWaitForResponse(request)
         if (response != null) {
             ioManager.outputLine(response.responseText)
+            if (response.responseText.contains("Authentication failed", ignoreCase = true) ||
+                response.responseText.contains("token expired", ignoreCase = true) ||
+                response.responseText.contains("session invalid", ignoreCase = true)) {
+                ioManager.outputLine("Authentication error from server. Clearing local credentials.")
+                currentUsername = null
+                currentPassword = null
+            }
         }
     }
 
@@ -191,7 +252,11 @@ class CommandProcessor(
             return
         }
 
-        val filePathString = Paths.get(fileName).toAbsolutePath().toString()
+        val filePathString = try { Paths.get(fileName).toAbsolutePath().toString() }
+        catch (e: InvalidPathException) {
+            ioManager.error("Invalid script file path '$fileName': ${e.message}")
+            return
+        }
         if (filePathString in executedScripts) {
             ioManager.error("Recursion detected: Script '$fileName' (resolved to '$filePathString') is already running in this call chain. Aborting.")
             return
@@ -244,21 +309,26 @@ class CommandProcessor(
                     val commandNameFromScript = parts.getOrNull(0)?.lowercase() ?: ""
                     val argumentStringFromScript = parts.getOrNull(1) ?: ""
 
-                    val descriptor = commandRegistry[commandNameFromScript]
-
-                    if (commandNameFromScript == "execute_script") {
-                        if (argumentStringFromScript.isNotBlank()) executeScript(argumentStringFromScript)
-                        else ioManager.error("[Script Error Line $lineNumber] Usage: execute_script <filename>")
-                    } else if (descriptor != null) {
-                        if (descriptor.requiresVehicleObject) {
-                            val scriptArgs =
-                                if (argumentStringFromScript.isNotBlank()) argumentStringFromScript.split("\\s+".toRegex()) else emptyList()
-                            processVehicleCommandInScript(descriptor, scriptArgs, scriptInputManager, lineNumber)
-                        } else {
-                            processSingleCommand(commandNameFromScript, argumentStringFromScript)
+                    when (commandNameFromScript) {
+                        "register" -> handleAuthCommand("register", argumentStringFromScript)
+                        "login" -> handleAuthCommand("login", argumentStringFromScript)
+                        "execute_script" -> {
+                            if (argumentStringFromScript.isNotBlank()) executeScript(argumentStringFromScript)
+                            else ioManager.error("[Script Error Line $lineNumber] Usage: execute_script <filename>")
                         }
-                    } else if (commandNameFromScript.isNotBlank()) {
-                        ioManager.error("[Script Error Line $lineNumber] Unknown command: '$commandNameFromScript'")
+                        else -> {
+                            val descriptor = commandRegistry[commandNameFromScript]
+                            if (descriptor != null) {
+                                if (descriptor.requiresVehicleObject) {
+                                    val scriptArgs = if (argumentStringFromScript.isNotBlank()) argumentStringFromScript.split("\\s+".toRegex()) else emptyList()
+                                    processVehicleCommandInScript(descriptor, scriptArgs, scriptInputManager, lineNumber)
+                                } else {
+                                    processSingleCommand(commandNameFromScript, argumentStringFromScript)
+                                }
+                            } else if (commandNameFromScript.isNotBlank()) {
+                                ioManager.error("[Script Error Line $lineNumber] Unknown command: '$commandNameFromScript'")
+                            }
+                        }
                     }
                 }
             }
@@ -278,6 +348,12 @@ class CommandProcessor(
         scriptInputManager: InputManager,
         baseLineNumber: Int
     ) {
+        if (currentUsername == null || currentPassword == null) {
+            ioManager.error("[Script Error Line $baseLineNumber] Cannot execute command '${descriptor.name}' from script: Not logged in.")
+            for (i in 1..7) scriptInputManager.readLine()
+            return
+        }
+
         val vehicleData = mutableListOf<String>()
         ioManager.outputLine("[Script Processing '${descriptor.name}'] Expecting 7 lines of vehicle data...")
         for (i in 1..7) {
@@ -294,12 +370,19 @@ class CommandProcessor(
             val finalBodyForScript = listOf(descriptor.name) + argsFromScriptLine
             val request = Request(
                 body = finalBodyForScript,
-                vehicle = vehicleFromScript
+                vehicle = vehicleFromScript,
+                username = currentUsername,
+                password = currentPassword
             )
             ioManager.outputLine("Sending command '${descriptor.name}' from script to server...")
             val response = apiClient.sendRequestAndWaitForResponse(request)
             if (response != null) {
                 ioManager.outputLine("[Script INFO] '${descriptor.name}' command response: ${response.responseText}")
+                if (response.responseText.contains("Authentication failed", ignoreCase = true)) {
+                    ioManager.outputLine("Authentication error from server during script. Clearing local credentials.")
+                    currentUsername = null
+                    currentPassword = null
+                }
             } else {
                 ioManager.error("[Script ERROR] No response for '${descriptor.name}' command from script or request timed out.")
             }
@@ -308,3 +391,4 @@ class CommandProcessor(
         }
     }
 }
+
