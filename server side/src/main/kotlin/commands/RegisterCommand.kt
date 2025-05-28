@@ -17,8 +17,6 @@ class RegisterCommand(private val userDAO: UserDAO) : CommandInterface, AuthComm
         CommandArgument("password", ArgumentType.STRING, description = "Your desired password")
     )
     override fun doesRequireVehicle(): Boolean = false
-
-    // This execute is for the general CommandInterface, not used directly for auth commands
     override fun execute(
         args: List<String>,
         vehicleService: VehicleService,
@@ -29,7 +27,6 @@ class RegisterCommand(private val userDAO: UserDAO) : CommandInterface, AuthComm
         return Response("Error: Use register <username> <password> format through client.")
     }
 
-    // This is the one that will be called by CommandProcessor
     override fun execute(username: String, plainPasswordStr: String, ioManager: IOManager): Response {
         if (username.isBlank() || plainPasswordStr.isBlank()) {
             return Response("Error: Username and password cannot be empty.")

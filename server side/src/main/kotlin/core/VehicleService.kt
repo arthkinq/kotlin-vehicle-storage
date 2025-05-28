@@ -33,10 +33,12 @@ class VehicleService (private val vehicleDAO: VehicleDAO) {
         if(addedVehicle != null) {
             synchronized(cacheLock) {
                 vehicleDAO.updateVehicle(addedVehicle)
+                vehiclesCache[addedVehicle.id]=addedVehicle
             }
             logger.info { "Vehicle $addedVehicle.id ${addedVehicle.id}" }
             return addedVehicle
         }
+
         logger.warning { "Failed to add vehicle ${newVehicle.name}" }
         return null
     }

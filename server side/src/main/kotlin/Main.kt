@@ -8,14 +8,12 @@ import myio.IOManager
 
 //TODO: крч я тут хуйни наверняка добавила надо делитнуть в онце
 fun main() {
-    val c = DatabaseManager.getConnection()
     val serverIoManager = IOManager(
         ConsoleInputManager(),
         ConsoleOutputManager()
     )
 
-    val collectionFileName = "Collection.csv"
-    val networkCommandProcessor = CommandProcessor(serverIoManager, collectionFileName)
+    val networkCommandProcessor = CommandProcessor(serverIoManager)
     Thread {
         ApiServer(networkCommandProcessor, serverIoManager).startServer()
     }.start()

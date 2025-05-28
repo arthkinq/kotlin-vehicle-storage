@@ -82,11 +82,11 @@ class CommandProcessor(
         }
 
         if (command is RegisterCommand || command is LoginCommand) {
-            if (username == null || password == null) {
+            if (commandArgs[0].isEmpty() || commandArgs[1].isEmpty()) {
                 return Response("Error: Username and password are required for $commandName.")
             }
 
-            return (command as AuthCommandInterface).execute(username, password, ioManagerForLogging)
+            return (command as AuthCommandInterface).execute(commandArgs[0], commandArgs[1], ioManagerForLogging)
         }
 
         if (username == null || password == null) {

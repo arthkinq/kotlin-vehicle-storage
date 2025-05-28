@@ -1,7 +1,6 @@
 package commands
 
 import myio.IOManager
-import core.CollectionManager
 import common.Response
 import core.VehicleService
 import model.Vehicle

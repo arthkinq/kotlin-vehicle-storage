@@ -21,19 +21,14 @@ class UserDAO {
                 connection.prepareStatement(sql).use { statement ->
                     statement.setString(1, username)
                     statement.setString(2, hashedPassword)
-                    // вернет количество строк
-                    val result = statement.executeUpdate()
-                    if (result == 0) {
-                        logger.warning("Creating user failed")
-                        return null
-                    }
+                    statement.executeUpdate()
                     statement.generatedKeys.use { generatedKeys ->
                         if(generatedKeys.next()) {
                             val id = generatedKeys.getInt("id")
                             logger.info("User $username $id has been added to database.")
                             return User(id, username, password)
                         } else {
-                            logger.warning("Creating user failed.")
+                            logger.warning("Creating user failed. $username $password")
                             return null
                         }
                     }

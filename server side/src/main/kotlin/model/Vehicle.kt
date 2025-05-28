@@ -35,7 +35,7 @@ data class Vehicle(
     }*/
     override fun toString(): String {
         return "Vehicle(id=$id, name='$name', coordinates=$coordinates, creationDate=$creationDate, " +
-                "enginePower=$enginePower, distanceTravelled=$distanceTravelled, type=$type, fuelType=$fuelType)"
+                "enginePower=$enginePower, distanceTravelled=$distanceTravelled, type=$type, fuelType=$fuelType, userId=$userId)"
     }
 
     override fun equals(other: Any?): Boolean {
