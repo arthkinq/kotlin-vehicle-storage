@@ -27,6 +27,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("org.postgresql:postgresql:42.6.0")
+
     implementation("commons-codec:commons-codec:1.15")
 }
 

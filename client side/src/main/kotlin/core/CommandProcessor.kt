@@ -97,6 +97,10 @@ class CommandProcessor(
                     continueExecution = false
                 }
                 "register" -> handleAuthCommand("register", argumentString)
+                "logout" -> {
+                    currentUsername = null
+                    currentPassword = null
+                }
                 "login" -> handleAuthCommand("login", argumentString)
                 "execute_script" -> {
                     if (argumentString.isNotBlank()) {

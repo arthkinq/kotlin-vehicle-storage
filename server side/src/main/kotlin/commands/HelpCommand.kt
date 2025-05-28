@@ -49,7 +49,7 @@ class HelpCommand(private val commandProcessor: CommandProcessor) : Command(
         }
         responseText.append("  execute_script <filename> - executes a script from a file.\n")
         responseText.append("  exit - Exits the client program.\n")
-
+        responseText.append("logout - Logs out the user")
         return Response(responseText.toString())
     }
 
