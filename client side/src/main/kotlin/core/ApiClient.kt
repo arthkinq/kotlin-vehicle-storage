@@ -25,8 +25,6 @@ class ApiClient(
 
     companion object {
         private const val READ_BUFFER_CAPACITY_CLIENT = 4096
-
-        //        private const val RECONNECT_DELAY_MS = 5000L
         private const val SELECTOR_RECOVERY_DELAY_MS = 3000L
         private const val DEFAULT_REQUEST_TIMEOUT_MS = 10000L
         private const val SELECT_TIMEOUT_MS = 1000L
@@ -120,11 +118,11 @@ class ApiClient(
         synchronized(responseLock) {
             while (connectionPending.get() && !connected.get() && (System.currentTimeMillis() - startTime < timeoutMs)) {
                 try {
-                    responseLock.wait(timeoutMs - (System.currentTimeMillis() - startTime).coerceAtLeast(0L) + 50) // Ждем с запасом
+                    responseLock.wait(timeoutMs - (System.currentTimeMillis() - startTime).coerceAtLeast(0L) + 50)
                 } catch (e: InterruptedException) {
                     Thread.currentThread().interrupt()
                     updateConnectionStatus(false, "Connection attempt interrupted.")
-                    connectionPending.set(false) // Сбросить, т.к. попытка прервана
+                    connectionPending.set(false)
                     return false
                 }
             }
@@ -149,13 +147,10 @@ class ApiClient(
             val currentSelector = selector
             if (currentSelector == null || !currentSelector.isOpen) {
                 logger.log(Level.WARNING, "ApiClient: Selector not open. Connection attempt aborted.")
-                connectionPending.set(false) // Сбрасываем, т.к. попытка не удалась
+                connectionPending.set(false)
                 updateConnectionStatus(false, "Internal error: Selector not available.")
                 return
             }
-
-            // connectionPending уже true
-            // updateConnectionStatus уже вызван в connectIfNeeded
             logger.log(Level.INFO, "ApiClient: Initiating connection (internal) to $serverHost:$serverPort.")
 
             val connectedImmediately = channel!!.connect(InetSocketAddress(serverHost, serverPort))
@@ -171,11 +166,11 @@ class ApiClient(
         } catch (e: Exception) {
             val errorMsg = "Error during internal connection initiation: ${e.message}"
             logger.log(Level.WARNING, "ApiClient: $errorMsg", e)
-            updateConnectionStatus(false, errorMsg) // Это обновит connected
-            connectionPending.set(false) // Сбрасываем здесь, т.к. попытка завершилась ошибкой
+            updateConnectionStatus(false, errorMsg)
+            connectionPending.set(false)
             channel?.closeQuietly()
             channel = null
-            synchronized(responseLock) { responseLock.notifyAll() } // Будим ожидающий connectIfNeeded
+            synchronized(responseLock) { responseLock.notifyAll() }
         }
     }
 
@@ -242,7 +237,7 @@ class ApiClient(
     private fun SocketChannel.closeQuietly() {
         try {
             if (isOpen) this.close()
-        } catch (e: IOException) { // ignore
+        } catch (e: IOException) {
         }
     }
 
@@ -268,10 +263,10 @@ class ApiClient(
             if (currentChannel != null && currentChannel.isOpen && currentSelector != null && currentSelector.isOpen) {
                 val existingKey = if (key?.isValid == true) key else currentChannel.keyFor(currentSelector)
 
-                if (existingKey == null || !existingKey.isValid) { // Если это новое подключение или ключ невалиден
+                if (existingKey == null || !existingKey.isValid) {
                     currentChannel.register(currentSelector, newOps)
                 } else {
-                    if ((existingKey.interestOps() and newOps) != newOps) { // Обновляем только если отличается
+                    if ((existingKey.interestOps() and newOps) != newOps) {
                         existingKey.interestOps(newOps)
                     }
                 }
@@ -343,7 +338,7 @@ class ApiClient(
                                 "ApiClient: Failed to re-open selector. Client networking is likely non-functional.",
                                 e
                             )
-                            running = false // Критическая ошибка, если селектор не восстановить
+                            running = false
                             updateConnectionStatus(false, "CRITICAL: Failed to recover selector. Client stopping.")
                             break
                         }
@@ -406,7 +401,7 @@ class ApiClient(
                 Thread.sleep(SELECT_TIMEOUT_MS)
             } catch (e: Exception) {
                 logger.log(Level.SEVERE, "ApiClient: Unexpected critical error in selector loop: ${e.message}", e)
-                running = false // Останавливаем при неизвестной критической ошибке
+                running = false
                 updateConnectionStatus(false, "CRITICAL: Unexpected error in network loop. Client stopping.")
                 break
             }
@@ -431,13 +426,11 @@ class ApiClient(
             key.cancel()
             socketChannel.closeQuietly()
             channel = null
-            synchronized(responseLock) { responseLock.notifyAll() } // Будим ожидающий connectIfNeeded
-        } catch (e: IOException) { // Другие IOException
+            synchronized(responseLock) { responseLock.notifyAll() }
+        } catch (e: IOException) {
             val errorMsg = "IOException during finishConnect(): ${e.message}"
             logger.log(Level.WARNING, "ApiClient: $errorMsg")
-            // handleDisconnect установит connected=false и сбросит connectionPending
             handleDisconnect(key, errorMsg)
-            // synchronized(responseLock) { responseLock.notifyAll() } // handleDisconnect уже это делает
         }
     }
 
@@ -644,7 +637,6 @@ class ApiClient(
         }
         channel = null
         selector = null
-        // connected и connectionPending уже должны быть false
         synchronized(pendingRequests) {
             pendingRequests.clear()
         }

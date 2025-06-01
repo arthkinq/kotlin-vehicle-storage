@@ -2,7 +2,6 @@ package core
 
 import model.*
 import myio.IOManager
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.NoSuchElementException // Уже есть
 
 class VehicleReader(private var ioManager: IOManager) {
@@ -38,7 +37,7 @@ class VehicleReader(private var ioManager: IOManager) {
 
     private fun readBoundedInt(prompt: String, min: Int = Int.MIN_VALUE, max: Int): Int {
         while (true) {
-            ioManager.outputInline("$prompt (must be <= $max): ") // Уточнил подсказку
+            ioManager.outputInline("$prompt (must be <= $max): ")
             val input = ioManager.readLine()
             try {
                 val value = input.toInt()
