@@ -7,19 +7,19 @@ import java.util.logging.Logger
 
 /* Будет хранить информацимю о БД, менять ее, создавать, хранить юзеров */
 object DatabaseManager {
-    private const val DB_HOST = "pg"
+    /*private const val DB_HOST = "pg"
     private const val DB_NAME = "studs"
     private const val DB_USER = "s476011"
     private const val DB_PASSWORD = "Aqe0lCiTfTkfwHNt"
-    private const val DB_PORT = 5432
+    private const val DB_PORT = 5432*/
     private val logger = Logger.getLogger(DatabaseManager::class.java.name)
-    /*private const val DB_HOST_LOCAL = "localhost"
+    private const val DB_HOST_LOCAL = "localhost"
     private const val DB_NAME_LOCAL = "lab_dev"
     private const val DB_USER_LOCAL = "postgres"
     private const val DB_PASSWORD_LOCAL = "test"
     private const val DB_PORT_LOCAL = 5432
-    private const val DB_URL_LOCAL = "jdbc:postgresql://$DB_HOST_LOCAL:$DB_PORT_LOCAL/$DB_NAME_LOCAL"*/
-    private const val DB_URL = "jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
+    private const val DB_URL_LOCAL = "jdbc:postgresql://$DB_HOST_LOCAL:$DB_PORT_LOCAL/$DB_NAME_LOCAL"
+    //private const val DB_URL = "jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
     init {
         try {
             Class.forName("org.postgresql.Driver")
@@ -35,7 +35,7 @@ object DatabaseManager {
     }
     fun getConnection(): Connection {
         try {
-            return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)
+            return DriverManager.getConnection(DB_URL_LOCAL, DB_USER_LOCAL, DB_PASSWORD_LOCAL)
         } catch (e: SQLException) {
             logger.info("Database connection failed! Error: ${e.message}")
             throw SQLException("Database connection failed! Error: ${e.message}")
