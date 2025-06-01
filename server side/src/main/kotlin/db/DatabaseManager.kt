@@ -7,11 +7,18 @@ import java.util.logging.Logger
 
 /* Будет хранить информацимю о БД, менять ее, создавать, хранить юзеров */
 object DatabaseManager {
-    private const val DB_HOST = "pg"
-    private const val DB_NAME = "studs"
-    private const val DB_USER = "s476011"
-    private const val DB_PASSWORD = "Aqe0lCiTfTkfwHNt"
+//    private const val DB_HOST = "pg"
+//    private const val DB_NAME = "studs"
+//    private const val DB_USER = "s476011"
+//    private const val DB_PASSWORD = "Aqe0lCiTfTkfwHNt"
+//    private const val DB_PORT = 5432
+
+    private const val DB_HOST = "localhost"
+    private const val DB_NAME = "proga"
+    private const val DB_USER = "postgres"
+    private const val DB_PASSWORD = "test"
     private const val DB_PORT = 5432
+
     private val logger = Logger.getLogger(DatabaseManager::class.java.name)
     /*private const val DB_HOST_LOCAL = "localhost"
     private const val DB_NAME_LOCAL = "lab_dev"
