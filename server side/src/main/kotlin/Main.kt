@@ -16,5 +16,5 @@ fun main() {
     Thread {
         ApiServer(networkCommandProcessor, serverIoManager).startServer()
     }.start()
-    serverIoManager.outputLine("Server started. Type 'exitAdmin' in this console to stop the server")
+    serverIoManager.outputLine("Server started. Type 'exitAdmin' in this console to stop the server ")
 }
