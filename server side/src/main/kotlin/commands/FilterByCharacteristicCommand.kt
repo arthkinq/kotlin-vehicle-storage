@@ -1,8 +1,8 @@
 package commands
 
 import myio.IOManager
-import core.CollectionManager
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 abstract class FilterByCharacteristicCommand(
@@ -17,11 +17,12 @@ abstract class FilterByCharacteristicCommand(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
-        val vehicles = collectionManager.filterByCharacteristic(args[0], args[1])
+        val vehicles = vehicleService.filterByCharacteristic(args[0], args[1])
         return if (vehicles.isEmpty()) {
             Response("No vehicles found with $args[0] = $args[1]")
         } else {

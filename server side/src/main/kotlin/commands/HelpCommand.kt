@@ -5,6 +5,7 @@ import common.ArgumentType
 import common.CommandArgument
 import common.Response
 import core.*
+import core.CommandProcessor
 import model.Vehicle
 
 class HelpCommand(private val commandProcessor: CommandProcessor) : Command(
@@ -14,9 +15,10 @@ class HelpCommand(private val commandProcessor: CommandProcessor) : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: '${getName()}' command takes no arguments.")
@@ -47,7 +49,7 @@ class HelpCommand(private val commandProcessor: CommandProcessor) : Command(
         }
         responseText.append("  execute_script <filename> - executes a script from a file.\n")
         responseText.append("  exit - Exits the client program.\n")
-
+        responseText.append("logout - Logs out the user")
         return Response(responseText.toString())
     }
 

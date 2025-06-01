@@ -1,9 +1,9 @@
 package commands
 
 import myio.IOManager
-import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class ClearCommand : Command(
@@ -13,15 +13,19 @@ class ClearCommand : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
-        collectionManager.clear()
-        return Response("Collection is clear.")
+        if(userId != null) {
+            vehicleService.clearUserVehicles(userId)
+            return Response("Your items in collection were removed.")
+        }
+        return Response("Error: UserID can't be empty.")
     }
 
     override fun getExpectedArguments(): List<CommandArgument> {

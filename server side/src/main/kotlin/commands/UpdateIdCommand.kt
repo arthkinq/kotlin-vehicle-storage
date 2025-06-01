@@ -2,9 +2,9 @@ package commands
 
 import myio.IOManager
 import common.ArgumentType
-import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class UpdateIdCommand : Command(
@@ -14,9 +14,10 @@ class UpdateIdCommand : Command(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: '${getName()}' command expects 1 argument (the ID of the vehicle to update).")
@@ -32,9 +33,11 @@ class UpdateIdCommand : Command(
             ioManager.error("UpdateIdCommand: Invalid ID format '${args[0]}'.")
             return Response("Error: Invalid ID format provided for update. ID must be an integer.")
         }
-
+        if(userId == null) {
+            Response("Please login to contunue")
+        }
         try {
-            val success = collectionManager.updateVehicleById(idFromArgs, vehicle)
+            val success = vehicleService.updateVehicleById(idFromArgs, vehicle, userId)
             return if (success) {
                 Response("Vehicle with ID $idFromArgs was updated successfully.")
             } else {

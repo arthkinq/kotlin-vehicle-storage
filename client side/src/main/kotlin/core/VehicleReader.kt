@@ -15,7 +15,8 @@ class VehicleReader(private var ioManager: IOManager) {
             enginePower = readPositiveDouble("Engine power"),
             distanceTravelled = readOptionalPositiveDouble("Distance travelled"),
             type = readEnum("Vehicle type", VehicleType::class.java),
-            fuelType = readEnum("Fuel type", FuelType::class.java)
+            fuelType = readEnum("Fuel type", FuelType::class.java),
+            userId = 0,
         )
     }
 
@@ -158,7 +159,8 @@ class VehicleReader(private var ioManager: IOManager) {
             enginePower = enginePower,
             distanceTravelled = distanceTravelled,
             type = type,
-            fuelType = fuelType
+            fuelType = fuelType,
+            userId = 0
         )
     }
 }

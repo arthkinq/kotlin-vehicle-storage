@@ -2,9 +2,9 @@ package commands
 
 import myio.IOManager
 import common.ArgumentType
-import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class FilterByEnginePowerCommand : FilterByCharacteristicCommand(
@@ -14,14 +14,15 @@ class FilterByEnginePowerCommand : FilterByCharacteristicCommand(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
         }
-        return super.execute(listOf("enginePower", args[0]), collectionManager, ioManager, null)
+        return super.execute(listOf("enginePower", args[0]), vehicleService, ioManager, null, userId)
 
 
     }

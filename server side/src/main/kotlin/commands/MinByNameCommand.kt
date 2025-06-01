@@ -1,9 +1,9 @@
 package commands
 
 import myio.IOManager
-import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 class MinByNameCommand : MinByCharacteristicCommand(
@@ -13,15 +13,16 @@ class MinByNameCommand : MinByCharacteristicCommand(
 ) {
     override fun execute(
         args: List<String>,
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
-        vehicle: Vehicle?
+        vehicle: Vehicle?,
+        userId: Int?
     ): Response {
         if (!checkSizeOfArgs(args.size)) {
             return Response("Error: Args can be size ${size}.")
 
         }
-        return super.execute(listOf("name"), collectionManager, ioManager,null)
+        return super.execute(listOf("name"), vehicleService, ioManager,null, userId)
     }
     override fun getExpectedArguments(): List<CommandArgument> {
         return emptyList()

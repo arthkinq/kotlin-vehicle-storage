@@ -1,9 +1,9 @@
 package commands
 
 import myio.IOManager
-import core.CollectionManager
 import common.CommandArgument
 import common.Response
+import core.VehicleService
 import model.Vehicle
 
 interface CommandInterface {
@@ -11,9 +11,10 @@ interface CommandInterface {
     fun getDescription(): String
     fun execute(
         args: List<String> = emptyList(),
-        collectionManager: CollectionManager,
+        vehicleService: VehicleService,
         ioManager: IOManager,
         vehicle: Vehicle? = null,
+        userId: Int? = null
     ): Response
 
     fun getExpectedArguments(): List<CommandArgument>
