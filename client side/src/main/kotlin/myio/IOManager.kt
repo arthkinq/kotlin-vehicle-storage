@@ -23,7 +23,7 @@ class IOManager(
     }
 
     fun error(message: String) {
-        output.error(message)
+        output.writeLine("ERROR: $message")
     }
     fun getInput(): InputManager { return input}
     fun setInput(inp: InputManager){input=inp}
