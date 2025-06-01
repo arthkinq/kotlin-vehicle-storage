@@ -1,6 +1,6 @@
 package core
 
-import myio.IOManager // Используется для ioManagerForLogging
+import myio.IOManager
 import commands.*
 import common.CommandDescriptor
 import common.Request
@@ -60,7 +60,7 @@ class CommandProcessor(
      * @param vehicleFromRequest Объект Vehicle, если команда его требует (например, add, update_id).
      * @return Объект Response с результатом выполнения команды.
      */
-    fun processCommand(request: Request): Response { // Modified to take full Request
+    fun processCommand(request: Request): Response {
         val commandBody = request.body
         val vehicleFromRequest = request.vehicle
         val username = request.username

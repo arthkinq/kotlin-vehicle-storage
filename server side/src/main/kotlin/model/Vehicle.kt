@@ -39,13 +39,13 @@ data class Vehicle(
     }
 
     override fun equals(other: Any?): Boolean {
-        if (this === other) return true // Проверка на ссылочное равенство
-        if (other !is Vehicle) return false // Проверка на тип
-        return this.id == other.id // Сравнение по id
+        if (this === other) return true
+        if (other !is Vehicle) return false
+        return this.id == other.id
     }
 
     override fun hashCode(): Int {
-        return id.hashCode() // Хэш-код на основе id
+        return id.hashCode()
     }
 
 }

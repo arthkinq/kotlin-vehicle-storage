@@ -2,26 +2,26 @@ package core
 
 import myio.IOManager
 import common.Request
-import common.Response // Ensure Response is imported
+import common.Response
 import common.SerializationUtils
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ForkJoinPool // Import ForkJoinPool
+import java.util.concurrent.ForkJoinPool
 import java.util.logging.Level
 import java.util.logging.Logger
 
 class ApiServer(
-    private val commandProcessor: CommandProcessor, // commandProcessor now takes fewer args
+    private val commandProcessor: CommandProcessor,
     private val ioManager: IOManager
 ) {
     private val logger = Logger.getLogger(ApiServer::class.java.name)
 
     companion object {
         private const val DEFAULT_PORT = 8888
-        private const val READ_BUFFER_CAPACITY = 8192 // Increased buffer slightly
+        private const val READ_BUFFER_CAPACITY = 8192
     }
 
     @Volatile
@@ -30,7 +30,7 @@ class ApiServer(
     private var serverSocketChannel: ServerSocketChannel? = null
 
     private val clientReadStates = ConcurrentHashMap<SocketChannel, SerializationUtils.ObjectReaderState>()
-    private val clientWriteQueues = ConcurrentHashMap<SocketChannel, ArrayDeque<ByteBuffer>>() // Queue of ByteBuffers to send
+    private val clientWriteQueues = ConcurrentHashMap<SocketChannel, ArrayDeque<ByteBuffer>>()
 
     private val requestProcessingPool = ForkJoinPool(Runtime.getRuntime().availableProcessors())
     private val responsePreparationPool = ForkJoinPool(Runtime.getRuntime().availableProcessors())
@@ -44,8 +44,7 @@ class ApiServer(
         running = true
 
         try {
-            // Initialize DatabaseManager (it has an init block that sets up tables)
-            db.DatabaseManager.getConnection().use { /* Just to trigger init */ }
+            db.DatabaseManager.getConnection().use {  }
             logger.info("Database initialized/checked.")
 
             selector = Selector.open()
@@ -77,7 +76,7 @@ class ApiServer(
                         try {
                             when {
                                 key.isAcceptable -> handleAccept(key)
-                                key.isReadable -> handleRead(key) // This will now offload processing
+                                key.isReadable -> handleRead(key)
                                 key.isWritable -> handleWrite(key)
                             }
                         } catch (e: CancelledKeyException) {
@@ -121,7 +120,7 @@ class ApiServer(
             clientChannel.configureBlocking(false)
             clientChannel.register(selector, SelectionKey.OP_READ)
             clientReadStates[clientChannel] = SerializationUtils.ObjectReaderState()
-            clientWriteQueues[clientChannel] = ArrayDeque() // Initialize write queue
+            clientWriteQueues[clientChannel] = ArrayDeque()
             logger.log(Level.INFO, "Accepted connection from: ${clientChannel.remoteAddress}")
         }
     }
@@ -161,20 +160,19 @@ class ApiServer(
                             readState.deserializeObject()
                         } catch (e: Exception) {
                             logger.log(Level.WARNING, "Deserialization error from ${clientChannel.remoteAddress}: ${e.message}", e)
-                            null // Or send error response
+                            null
                         } finally {
                             readState.reset()
                         }
 
                         if (request != null) {
                             logger.log(Level.INFO, "Received request from ${clientChannel.remoteAddress}: command='${request.body.getOrNull(0)}'")
-                            // Offload request processing to ForkJoinPool
+
                             requestProcessingPool.execute {
                                 val response = commandProcessor.processCommand(request)
-                                response.clearCommandDescriptors() // Always send fresh descriptors
+                                response.clearCommandDescriptors()
                                 response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
 
-                                // Offload response serialization to another ForkJoinPool
                                 responsePreparationPool.execute {
                                     val responseBuffer = SerializationUtils.objectToByteBuffer(response)
                                     queueResponseBuffer(clientChannel, responseBuffer, key)
@@ -182,7 +180,6 @@ class ApiServer(
                             }
                         } else {
                             logger.log(Level.WARNING, "Failed to deserialize request from ${clientChannel.remoteAddress}. Invalid data format.")
-                            // Optionally, send an error response back
                             val errorResponse = Response("Error: Invalid request format received by server.")
                             errorResponse.addCommandDescriptors(commandProcessor.getCommandDescriptors())
                             responsePreparationPool.execute {
@@ -190,7 +187,6 @@ class ApiServer(
                                 queueResponseBuffer(clientChannel, responseBuffer, key)
                             }
                         }
-                        // readState.reset() // Moved into try-finally
                     } else break
                 }
             }
@@ -199,11 +195,10 @@ class ApiServer(
 
     private fun queueResponseBuffer(clientChannel: SocketChannel, buffer: ByteBuffer, key: SelectionKey) {
         clientWriteQueues[clientChannel]?.let { queue ->
-            synchronized(queue) { // Synchronize access to the specific client's queue
+            synchronized(queue) {
                 queue.addLast(buffer)
             }
-            // Ensure OP_WRITE is set. This needs to be done carefully to avoid race conditions
-            // with the selector thread. Waking up the selector is key.
+
             if (key.isValid && (key.interestOps() and SelectionKey.OP_WRITE) == 0) {
                 try {
                     key.interestOps(key.interestOps() or SelectionKey.OP_WRITE)
@@ -211,18 +206,18 @@ class ApiServer(
                     logger.finer("Key cancelled before setting OP_WRITE for ${clientChannel.remoteAddress}")
                 }
             }
-            selector?.wakeup() // Wake up selector thread to process OP_WRITE
+            selector?.wakeup()
         } ?: logger.warning("No write queue for client ${clientChannel.remoteAddress} when trying to queue response.")
     }
 
 
     private fun handleWrite(key: SelectionKey) {
         val clientChannel = key.channel() as SocketChannel
-        val queue = clientWriteQueues[clientChannel] ?: return // No queue, nothing to write
+        val queue = clientWriteQueues[clientChannel] ?: return
 
-        synchronized(queue) { // Synchronize access to this client's queue
+        synchronized(queue) {
             val bufferToWrite = queue.firstOrNull()
-            if (bufferToWrite == null) { // Queue is empty
+            if (bufferToWrite == null) {
                 if (key.isValid) key.interestOps(SelectionKey.OP_READ)
                 return
             }
@@ -237,14 +232,14 @@ class ApiServer(
             }
 
             if (!bufferToWrite.hasRemaining()) {
-                queue.removeFirstOrNull() // Remove fully sent buffer
+                queue.removeFirstOrNull()
                 logger.log(Level.INFO, "Finished writing a response buffer to ${clientChannel.remoteAddress}.")
             }
 
-            if (queue.isEmpty()) { // If queue is now empty, remove OP_WRITE interest
+            if (queue.isEmpty()) {
                 if (key.isValid) key.interestOps(SelectionKey.OP_READ)
             }
-            // If queue still has data, OP_WRITE remains, selector will call handleWrite again
+
         }
     }
 
@@ -254,7 +249,7 @@ class ApiServer(
         logger.log(Level.INFO, "Cleaning up client $remoteAddr")
 
         clientReadStates.remove(clientChannel)
-        clientWriteQueues.remove(clientChannel) // Remove write queue
+        clientWriteQueues.remove(clientChannel)
 
         try {
             clientChannel.close()
@@ -266,8 +261,7 @@ class ApiServer(
 
     private fun adminConsoleLoop() {
         logger.log(Level.INFO, "AdminConsoleThread: Started.")
-        // Removed "save" commands as per requirements.
-        // Admin console can be used for "exit" or other server-side only commands in future.
+
         try {
             while (running) {
                 if (!System.`in`.bufferedReader().ready() && !running) break
@@ -277,29 +271,29 @@ class ApiServer(
                 logger.log(Level.FINER, "AdminConsoleThread: Received command: '$serverAdminCommand'")
 
                 when (serverAdminCommand?.trim()?.lowercase()) {
-                    "exitadmin", "exit" -> { // Added "exit" for convenience
+                    "exitadmin", "exit" -> {
                         logger.log(Level.INFO, "AdminConsoleThread: Processing 'exit'.")
                         running = false
-                        selector?.wakeup() // Wake up selector to notice 'running' flag
+                        selector?.wakeup()
                         logger.log(Level.INFO, "AdminConsoleThread: Server shutdown initiated.")
                         return
                     }
-                    // "saveadmin" is removed
+
                     else -> {
                         if (!serverAdminCommand.isNullOrBlank()) {
                             logger.log(Level.INFO, "AdminConsoleThread: Unknown command: '$serverAdminCommand'")
                         }
                     }
                 }
-                if (!running) break // Check after processing
+                if (!running) break
             }
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
             logger.log(Level.INFO, "AdminConsoleThread: Interrupted.")
         } catch (e: IOException) {
-            // ... (rest of existing catch block)
+
         } catch (e: Exception) {
-            // ... (rest of existing catch block)
+
         } finally {
             logger.log(Level.INFO, "AdminConsoleThread: Finished.")
         }
@@ -307,9 +301,7 @@ class ApiServer(
 
     private fun shutdownServerInternals() {
         logger.log(Level.INFO, "Shutting down server internals...")
-        running = false // Ensure it's set
-
-        // Shutdown ForkJoinPools
+        running = false
         requestProcessingPool.shutdown()
         responsePreparationPool.shutdown()
         try {
@@ -330,7 +322,7 @@ class ApiServer(
         selector?.let {
             if (it.isOpen) {
                 it.keys().forEach { key ->
-                    try { key.channel()?.close() } catch (e: IOException) { /* ignore */ }
+                    try { key.channel()?.close() } catch (e: IOException) {  }
                     key.cancel()
                 }
                 try { it.close() } catch (e: IOException) { logger.log(Level.WARNING, "Error closing selector: ${e.message}", e) }
