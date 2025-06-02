@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Text?>
+<VBox fx:controller="gui.LoginController" alignment="CENTER" spacing="10" prefWidth="300" prefHeight="250"
+      xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/17">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Login or Register"/>
+
+    <Label text="Username:"/>
+    <TextField fx:id="usernameField"/>
+
+    <Label text="Password:"/>
+    <PasswordField fx:id="passwordField"/>
+
+    <HBox spacing="10" alignment="CENTER">
+        <Button fx:id="loginButton" text="Login" onAction="#handleLogin"/>
+        <Button fx:id="registerButton" text="Register" onAction="#handleRegister"/>
+    </HBox>
+
+    <Text fx:id="statusText" fill="RED" VBox.vgrow="ALWAYS"/>
+
+</VBox>

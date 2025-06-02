@@ -31,6 +31,10 @@ class ApiClient(
         private const val CONNECT_ATTEMPT_TIMEOUT_MS = 5000L
     }
 
+    private var currentSessionUsername: String? = null
+    private var currentSessionPassword: String? = null
+    private val sessionLock = Any()
+
     @Volatile
     private var running = true
 
@@ -80,6 +84,30 @@ class ApiClient(
             synchronized(responseLock) { responseLock.notifyAll() }
         } else if (changed && isConnected) {
             synchronized(responseLock) { responseLock.notifyAll() }
+        }
+    }
+
+    fun setCurrentUserCredentials(username: String?, password: String?) {
+        synchronized(sessionLock) {
+            this.currentSessionUsername = username
+            this.currentSessionPassword = password
+            if (username == null) {
+                logger.info("ApiClient: User credentials cleared.")
+            } else {
+                logger.info("ApiClient: User credentials set for '$username'.")
+            }
+        }
+    }
+
+    fun getCurrentUserCredentials(): Pair<String, String>? {
+        synchronized(sessionLock) {
+            val u = currentSessionUsername
+            val p = currentSessionPassword
+            return if (u != null && p != null) {
+                Pair(u, p)
+            } else {
+                null
+            }
         }
     }
 
@@ -533,7 +561,7 @@ class ApiClient(
         val disconnectMessage = "Handling disconnect. Reason: ${reason ?: "Unknown"}"
         logger.log(Level.INFO, "ApiClient: $disconnectMessage")
         updateConnectionStatus(false, disconnectMessage)
-
+        setCurrentUserCredentials(null, null)
         key?.cancel()
         channel?.closeQuietly()
         channel = null
@@ -644,4 +672,6 @@ class ApiClient(
     }
 
     fun isConnected() = connected.get()
+    fun isConnectionPending() = connectionPending.get()
+    fun isRunning() = running
 }

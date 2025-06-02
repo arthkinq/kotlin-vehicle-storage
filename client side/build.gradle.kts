@@ -4,6 +4,8 @@ plugins {
     kotlin("plugin.serialization") version "1.9.0"
     id("com.github.johnrengelman.shadow") version "7.1.2"
     id("org.jetbrains.dokka") version "2.0.0"
+    id("org.openjfx.javafxplugin") version "0.0.13"
+
 }
 
 group = ""
@@ -11,6 +13,11 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+}
+
+javafx {
+    version = "17.0.10"
+    modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics")
 }
 
 dependencies {

@@ -13,8 +13,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 class CommandProcessor(
-    private val apiClient: ApiClient,
-    private val ioManager: IOManager
+    private val apiClient: ApiClient, private val ioManager: IOManager
 ) {
     private val vehicleReader: VehicleReader = VehicleReader(ioManager)
     private val maxRecursionDepth = 5
@@ -29,8 +28,6 @@ class CommandProcessor(
 
     @Volatile
     private var currentlyConnected = false
-    private var currentUsername: String? = "Guest"
-    private var currentPassword: String? = null
 
     init {
         apiClient.onCommandDescriptorsUpdated = { newDescriptors ->
@@ -64,8 +61,6 @@ class CommandProcessor(
             ioManager.outputLine("\nNetwork: $actualMessage")
             if (!isConnected) {
                 ioManager.outputLine("Command list might be outdated. Credentials cleared if previously set.")
-                currentUsername = null
-                currentPassword = null
                 commandListInitialized = false
             }
         }
@@ -89,9 +84,8 @@ class CommandProcessor(
 
 
         while (continueExecution) {
-            val promptUser = currentUsername ?: "Guest"
+            val promptUser = apiClient.getCurrentUserCredentials()?.first ?: "Guest"
             ioManager.outputInline("$promptUser > ")
-
             val userInput = ioManager.readLine().trim()
 
             if (userInput.trim() == "") {
@@ -127,8 +121,7 @@ class CommandProcessor(
                         "register" -> handleAuthCommand("register", argumentString)
                         "login" -> handleAuthCommand("login", argumentString)
                         "logout" -> {
-                            currentUsername = null
-                            currentPassword = null
+                            apiClient.setCurrentUserCredentials(null, null)
                             ioManager.outputLine("Logged out.")
                         }
 
@@ -162,21 +155,19 @@ class CommandProcessor(
         val tempPassword = args[1]
 
         val request = Request(
-            body = listOf(commandName, tempUsername, tempPassword),
-            username = tempUsername,
-            password = tempPassword
+            body = listOf(commandName, tempUsername, tempPassword), username = tempUsername, password = tempPassword
         )
 
         val response = apiClient.sendRequestAndWaitForResponse(request)
         if (response != null) {
             ioManager.outputLine(response.responseText)
             if (commandName == "login" && !response.responseText.startsWith("Error:")) {
-                currentUsername = tempUsername
-                currentPassword = tempPassword
+                apiClient.setCurrentUserCredentials(tempUsername, tempPassword) // Устанавливаем креды в ApiClient
+
                 ioManager.outputLine("Credentials stored for this session.")
             } else if (commandName == "login" && response.responseText.startsWith("Error:")) {
-                currentUsername = null
-                currentPassword = null
+                apiClient.setCurrentUserCredentials(null, null) // Устанавливаем креды в ApiClient
+
             }
         } else {
             ioManager.error("No response from server for $commandName command or request timed out.")
@@ -185,7 +176,8 @@ class CommandProcessor(
 
 
     private fun processSingleCommand(commandNameInLowercase: String, argumentString: String) {
-        if (currentUsername == null || currentPassword == null) {
+        val currentUserCreds = apiClient.getCurrentUserCredentials()
+        if (currentUserCreds == null) {
             if (commandNameInLowercase != "help") {
                 ioManager.error("You must be logged in to execute commands. Use 'login <username> <password>'.")
                 return
@@ -238,20 +230,23 @@ class CommandProcessor(
         val request = Request(
             body = listOf(descriptor.name) + finalArgsForServer,
             vehicle = vehicleForRequest,
-            username = currentUsername,
-            password = currentPassword
+            username = currentUserCreds.first, // Используем креды из ApiClient
+            password = currentUserCreds.second
         )
 
         val response = apiClient.sendRequestAndWaitForResponse(request)
         if (response != null) {
             ioManager.outputLine(response.responseText)
-            if (response.responseText.contains("Authentication failed", ignoreCase = true) ||
-                response.responseText.contains("token expired", ignoreCase = true) ||
-                response.responseText.contains("session invalid", ignoreCase = true)
+            if (response.responseText.contains(
+                    "Authentication failed",
+                    ignoreCase = true
+                ) || response.responseText.contains(
+                    "token expired",
+                    ignoreCase = true
+                ) || response.responseText.contains("session invalid", ignoreCase = true)
             ) {
                 ioManager.outputLine("Authentication error from server. Clearing local credentials.")
-                currentUsername = null
-                currentPassword = null
+                apiClient.setCurrentUserCredentials(null, null) // Сбрасываем креды в ApiClient
             }
         }
     }
@@ -356,10 +351,7 @@ class CommandProcessor(
                                     val scriptArgs =
                                         if (argumentStringFromScript.isNotBlank()) argumentStringFromScript.split("\\s+".toRegex()) else emptyList()
                                     processVehicleCommandInScript(
-                                        descriptor,
-                                        scriptArgs,
-                                        scriptInputManager,
-                                        lineNumber
+                                        descriptor, scriptArgs, scriptInputManager, lineNumber
                                     )
                                 } else {
                                     processSingleCommand(commandNameFromScript, argumentStringFromScript)
@@ -387,7 +379,8 @@ class CommandProcessor(
         scriptInputManager: InputManager,
         baseLineNumber: Int
     ) {
-        if (currentUsername == null || currentPassword == null) {
+        val currentUserCreds = apiClient.getCurrentUserCredentials()
+        if (currentUserCreds == null) {
             ioManager.error("[Script Error Line $baseLineNumber] Cannot execute command '${descriptor.name}' from script: Not logged in.")
             for (i in 1..7) scriptInputManager.readLine()
             return
@@ -409,8 +402,8 @@ class CommandProcessor(
             val request = Request(
                 body = finalBodyForScript,
                 vehicle = vehicleFromScript,
-                username = currentUsername,
-                password = currentPassword
+                username = currentUserCreds.first, // Используем креды из ApiClient
+                password = currentUserCreds.second
             )
             ioManager.outputLine("Sending command '${descriptor.name}' from script to server...")
             val response = apiClient.sendRequestAndWaitForResponse(request)
@@ -418,8 +411,7 @@ class CommandProcessor(
                 ioManager.outputLine("[Script INFO] '${descriptor.name}' command response: ${response.responseText}")
                 if (response.responseText.contains("Authentication failed", ignoreCase = true)) {
                     ioManager.outputLine("Authentication error from server during script. Clearing local credentials.")
-                    currentUsername = null
-                    currentPassword = null
+                    apiClient.setCurrentUserCredentials(null, null) // Сбрасываем креды в ApiClient
                 }
             } else {
                 ioManager.error("[Script ERROR] No response for '${descriptor.name}' command from script or request timed out.")
