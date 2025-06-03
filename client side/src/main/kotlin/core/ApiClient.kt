@@ -51,8 +51,7 @@ class ApiClient(
     private val logger = Logger.getLogger(ApiClient::class.java.name)
 
     var onCommandDescriptorsUpdated: ((List<CommandDescriptor>) -> Unit)? = null
-    var onConnectionStatusChanged: ((Boolean, String?) -> Unit)? =
-        null
+    var onConnectionStatusChanged: ((Boolean, String?) -> Unit)? = null
 
     init {
         logger.level = Level.WARNING
@@ -108,6 +107,14 @@ class ApiClient(
             } else {
                 null
             }
+        }
+    }
+
+    fun clearCurrentUserCredentials() {
+        synchronized(sessionLock) {
+            this.currentSessionUsername = null
+            this.currentSessionPassword = null
+            logger.info("ApiClient: User credentials explicitly cleared.")
         }
     }
 
@@ -202,70 +209,10 @@ class ApiClient(
         }
     }
 
-//    private fun initiateConnection() {
-//        if (!running || connected.get() || connectionPending.get()) {
-//            return
-//        }
-//
-//        try {
-//            if (channel == null || channel?.isOpen == false) {
-//                channel?.closeQuietly()
-//                channel = SocketChannel.open()
-//                channel!!.configureBlocking(false)
-//                logger.log(Level.INFO, "ApiClient: New SocketChannel created for connection attempt.")
-//            }
-//
-//            val currentSelector = selector
-//            if (currentSelector == null || !currentSelector.isOpen) {
-//                logger.log(
-//                    Level.WARNING,
-//                    "ApiClient: Selector not open during initiateConnection. Will be handled by selector loop."
-//                )
-//                connectionPending.set(false)
-//                return
-//            }
-//
-//            connectionPending.set(true)
-//            updateConnectionStatus(false, "Attempting to connect to $serverHost:$serverPort...")
-//            logger.log(Level.INFO, "ApiClient: Initiating connection to $serverHost:$serverPort.")
-//
-//            val connectedImmediately = channel!!.connect(InetSocketAddress(serverHost, serverPort))
-//
-//            if (connectedImmediately) {
-//                logger.log(Level.INFO, "ApiClient: Connected immediately.")
-//                completeConnectionSetup(null)
-//            } else {
-//                logger.log(Level.INFO, "ApiClient: Connection pending.")
-//                channel!!.register(currentSelector, SelectionKey.OP_CONNECT)
-//            }
-//            currentSelector.wakeup()
-//        } catch (e: ConnectException) {
-//            connectionPending.set(false)
-//            val errorMsg = "Connection refused to $serverHost:$serverPort. Will retry."
-//            logger.log(Level.WARNING, "$errorMsg Error: ${e.message}")
-//            updateConnectionStatus(false, errorMsg)
-//            channel?.closeQuietly()
-//            channel = null
-//        } catch (e: ClosedChannelException) {
-//            connectionPending.set(false)
-//            val errorMsg = "Channel closed during connection attempt. Will retry."
-//            logger.log(Level.WARNING, "$errorMsg Error: ${e.message}")
-//            updateConnectionStatus(false, errorMsg)
-//            channel = null
-//        } catch (e: Exception) {
-//            connectionPending.set(false)
-//            val errorMsg = "Error initiating connection. Will retry."
-//            logger.log(Level.WARNING, "$errorMsg Error: ${e.message}", e)
-//            updateConnectionStatus(false, errorMsg)
-//            channel?.closeQuietly()
-//            channel = null
-//        }
-//    }
-
     private fun SocketChannel.closeQuietly() {
         try {
             if (isOpen) this.close()
-        } catch (e: IOException) {
+        } catch (_: IOException) {
         }
     }
 
@@ -383,12 +330,6 @@ class ApiClient(
                     Thread.sleep(SELECT_TIMEOUT_MS)
                     continue
                 }
-//                if (!connected.get() && !connectionPending.get()) {
-//                    if (System.currentTimeMillis() - lastReconnectAttemptTime > RECONNECT_DELAY_MS) {
-//                        initiateConnection()
-//                        lastReconnectAttemptTime = System.currentTimeMillis()
-//                    }
-//                }
 
                 val readyCount = selectorToUse.select(SELECT_TIMEOUT_MS)
 
@@ -560,8 +501,10 @@ class ApiClient(
     private fun handleDisconnect(key: SelectionKey?, reason: String?) {
         val disconnectMessage = "Handling disconnect. Reason: ${reason ?: "Unknown"}"
         logger.log(Level.INFO, "ApiClient: $disconnectMessage")
-        updateConnectionStatus(false, disconnectMessage)
-        setCurrentUserCredentials(null, null)
+        updateConnectionStatus(false, disconnectMessage) // Сообщаем о дисконнекте
+
+        // setCurrentUserCredentials(null, null) // НЕ СБРАСЫВАЕМ КРЕДЫ АВТОМАТИЧЕСКИ ЗДЕСЬ
+
         key?.cancel()
         channel?.closeQuietly()
         channel = null

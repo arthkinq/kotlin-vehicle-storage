@@ -16,7 +16,7 @@ repositories {
 }
 
 javafx {
-    version = "17.0.10"
+    version = "21.0.5"
     modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics")
 }
 
@@ -32,6 +32,7 @@ dependencies {
     implementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
     runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
     implementation("org.assertj:assertj-core:3.24.2")
+    implementation ("no.tornado:tornadofx:1.7.20")
 }
 
 tasks.test {

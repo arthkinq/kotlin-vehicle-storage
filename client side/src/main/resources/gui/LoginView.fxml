@@ -1,29 +1,76 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
+<?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Text?>
-<VBox fx:controller="gui.LoginController" alignment="CENTER" spacing="10" prefWidth="300" prefHeight="250"
-      xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/17">
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<VBox alignment="CENTER" prefHeight="385.0" prefWidth="298.0" spacing="10.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="gui.LoginController">
     <padding>
-        <Insets top="20" right="20" bottom="20" left="20"/>
+        <Insets bottom="20.0" left="30.0" right="30.0" top="20.0" />
     </padding>
+    <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Vehicle manager" textAlignment="CENTER">
+        <font>
+            <Font name="Tahoma Bold" size="30.0" />
+        </font>
+        <VBox.margin>
+            <Insets bottom="5.0" />
+        </VBox.margin>
+    </Text>
+    <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Авторизация" textAlignment="CENTER">
+        <font>
+            <Font name="Tahoma" size="28.0" />
+        </font>
+        <VBox.margin>
+            <Insets bottom="20.0" />
+        </VBox.margin>
+    </Text>
 
-    <Label text="Login or Register"/>
-
-    <Label text="Username:"/>
-    <TextField fx:id="usernameField"/>
-
-    <Label text="Password:"/>
-    <PasswordField fx:id="passwordField"/>
-
-    <HBox spacing="10" alignment="CENTER">
-        <Button fx:id="loginButton" text="Login" onAction="#handleLogin"/>
-        <Button fx:id="registerButton" text="Register" onAction="#handleRegister"/>
+    <HBox alignment="CENTER_LEFT" spacing="10.0">
+        <Label minWidth="100.0" text="Логин:">
+            <font>
+                <Font name="Tahoma" size="22.0" />
+            </font>
+        </Label>
+        <TextField fx:id="usernameField" prefHeight="35.0" prefWidth="300.0" promptText="Ваш логин" HBox.hgrow="ALWAYS">
+            <font>
+                <Font name="Tahoma" size="18.0" />
+            </font>
+        </TextField>
     </HBox>
 
-    <Text fx:id="statusText" fill="RED" VBox.vgrow="ALWAYS"/>
+    <HBox alignment="CENTER_LEFT" spacing="10.0">
+        <Label minWidth="100.0" text="Пароль:">
+            <font>
+                <Font name="Tahoma" size="22.0" />
+            </font>
+        </Label>
+        <PasswordField fx:id="passwordField" prefHeight="35.0" prefWidth="300.0" promptText="Ваш пароль" HBox.hgrow="ALWAYS">
+            <font>
+                <Font name="Tahoma" size="18.0" />
+            </font>
+        </PasswordField>
+    </HBox>
 
+          <Text fx:id="statusText" fill="RED" strokeType="OUTSIDE" strokeWidth="0.0" textAlignment="CENTER" wrappingWidth="370.0">
+        <font>
+            <Font name="System Italic" size="16.0" />
+        </font>
+        <VBox.margin>
+            <Insets />
+        </VBox.margin>
+    </Text>
+     <Button fx:id="loginButton" mnemonicParsing="false" onAction="#handleLogin" text="Войти">
+         <font>
+             <Font name="Tahoma" size="32.0" />
+         </font>
+      <VBox.margin>
+         <Insets />
+      </VBox.margin>
+     </Button>
+     <Button fx:id="registerButton" mnemonicParsing="false" onAction="#handleRegister" text="Зарегистрироваться">
+         <font>
+             <Font name="Tahoma" size="18.0" />
+         </font>
+     </Button>
 </VBox>
