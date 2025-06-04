@@ -1,32 +1,26 @@
-package gui // или ваш пакет для GUI классов
+package gui
 
 import javafx.geometry.Insets
 import javafx.scene.control.*
 import javafx.scene.layout.GridPane
 import javafx.stage.Window
-import model.* // Импортируем ваши модели Vehicle, Coordinates, VehicleType, FuelType
-import java.time.Instant // Для creationDate, если используем Long как timestamp
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import model.*
 
 class VehicleInputDialog(owner: Window, private val existingVehicle: Vehicle?) : Dialog<Vehicle>() {
 
-    // Поля ввода GUI
     private val nameField = TextField()
     private val coordXField = TextField()
     private val coordYField = TextField()
     private val enginePowerField = TextField()
     private val distanceTravelledField = TextField()
-    private val typeComboBox = ComboBox<VehicleType?>() // Nullable, если тип может отсутствовать
-    private val fuelTypeComboBox = ComboBox<FuelType?>() // Nullable
+    private val typeComboBox = ComboBox<VehicleType?>()
+    private val fuelTypeComboBox = ComboBox<FuelType?>()
 
-    // Если у вас есть поле creationDate для отображения (но оно обычно генерируется)
-    // private val creationDateField = TextField() // Сделать его non-editable, если генерируется
 
     init {
         initOwner(owner)
         title = if (existingVehicle == null) "Add New Vehicle" else "Edit Vehicle (ID: ${existingVehicle.id})"
-        dialogPane.minWidth = 400.0 // Задаем минимальную ширину для диалога
+        dialogPane.minWidth = 400.0
 
         setupLayout()
         populateFieldsIfEditing()
@@ -57,23 +51,15 @@ class VehicleInputDialog(owner: Window, private val existingVehicle: Vehicle?) :
         grid.add(distanceTravelledField.apply { promptText = "Number or empty" }, 1, rowIndex++)
 
         grid.add(Label("Vehicle Type (optional):"), 0, rowIndex)
-        typeComboBox.items.addAll(null) // Добавляем null как опцию "не выбрано"
+        typeComboBox.items.addAll(null)
         typeComboBox.items.addAll(VehicleType.entries)
         grid.add(typeComboBox, 1, rowIndex++)
 
         grid.add(Label("Fuel Type (optional):"), 0, rowIndex)
-        fuelTypeComboBox.items.addAll(null) // Добавляем null как опцию "не выбрано"
+        fuelTypeComboBox.items.addAll(null)
         fuelTypeComboBox.items.addAll(FuelType.entries)
         grid.add(fuelTypeComboBox, 1, rowIndex++)
 
-        // Если creationDate нужно отображать (обычно для редактирования, не для нового)
-        // if (existingVehicle != null) {
-        //     grid.add(Label("Creation Date:"), 0, rowIndex)
-        //     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
-        //     creationDateField.text = formatter.format(Instant.ofEpochMilli(existingVehicle.creationDate))
-        //     creationDateField.isEditable = false
-        //     grid.add(creationDateField, 1, rowIndex++)
-        // }
 
 
         dialogPane.content = grid
@@ -97,12 +83,6 @@ class VehicleInputDialog(owner: Window, private val existingVehicle: Vehicle?) :
     private fun setupResultConverter() {
         val okButton = dialogPane.lookupButton(dialogPane.buttonTypes.first { it.buttonData == ButtonBar.ButtonData.OK_DONE })
 
-        // Простая валидация для активации кнопки OK (можно усложнить)
-        // okButton.isDisable = true
-        // nameField.textProperty().addListener { _, _, newValue ->
-        //     okButton.isDisable = newValue.trim().isEmpty() || coordXField.text.trim().isEmpty() /* ... и т.д. ... */
-        // }
-        // coordXField.textProperty().addListener { /* ... */ }
 
 
         setResultConverter { dialogButton ->
@@ -136,12 +116,9 @@ class VehicleInputDialog(owner: Window, private val existingVehicle: Vehicle?) :
                     val type: VehicleType? = typeComboBox.value
                     val fuelType: FuelType? = fuelTypeComboBox.value
 
-                    // ID и creationDate:
-                    // Для нового объекта ID будет присвоен сервером. creationDate генерируем сейчас или сервер.
-                    // Для существующего объекта сохраняем старые ID и creationDate.
-                    val id = existingVehicle?.id ?: 0 // Или другое значение-плейсхолдер для нового
+                    val id = existingVehicle?.id ?: 0
                     val creationDate = existingVehicle?.creationDate ?: System.currentTimeMillis()
-                    val userId = existingVehicle?.userId ?: 0 // TODO: Получать актуального userId, если нужно
+                    val userId = existingVehicle?.userId ?: 0
 
                     return@setResultConverter Vehicle(
                         id = id,
@@ -152,25 +129,24 @@ class VehicleInputDialog(owner: Window, private val existingVehicle: Vehicle?) :
                         distanceTravelled = distanceTravelled,
                         type = type,
                         fuelType = fuelType,
-                        userId = userId // Важно: userId должен быть актуальным
+                        userId = userId
                     )
 
                 } catch (e: ValidationException) {
                     showValidationError(e.message)
-                    return@setResultConverter null // Остаемся в диалоге
+                    return@setResultConverter null
                 } catch (e: NumberFormatException) {
                     showValidationError("Invalid number format in one of the fields.")
-                    return@setResultConverter null // Остаемся в диалоге
-                } catch (e: Exception) { // Общий обработчик
+                    return@setResultConverter null
+                } catch (e: Exception) {
                     showValidationError("An unexpected error occurred: ${e.message}")
                     return@setResultConverter null
                 }
             }
-            null // Для Cancel или закрытия окна
+            null
         }
     }
 
-    // Отдельный метод для показа ошибки, чтобы не закрывать диалог
     private fun showValidationError(message: String?) {
         val alert = Alert(Alert.AlertType.ERROR).apply {
             initOwner(this@VehicleInputDialog.dialogPane.scene.window)
@@ -186,5 +162,4 @@ class VehicleInputDialog(owner: Window, private val existingVehicle: Vehicle?) :
     }
 }
 
-// Вспомогательный класс для ошибок валидации
 private class ValidationException(message: String) : RuntimeException(message)

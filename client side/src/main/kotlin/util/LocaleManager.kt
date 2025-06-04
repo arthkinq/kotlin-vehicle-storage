@@ -1,4 +1,4 @@
-package util // или gui.util, или любой другой подходящий пакет
+package util
 
 import java.text.MessageFormat
 import java.util.Locale
@@ -13,7 +13,6 @@ object LocaleManager {
     val BULGARIAN = Locale("bg")
     val CANADIAN_ENGLISH = Locale("en", "CA")
 
-    // Список поддерживаемых локалей и локаль по умолчанию
     val supportedLocales: List<Locale> = listOf(RUSSIAN, ESTONIAN, BULGARIAN, CANADIAN_ENGLISH)
     val defaultLocale: Locale = CANADIAN_ENGLISH
 
@@ -73,7 +72,25 @@ object LocaleManager {
             "status.disconnected" to "Отключено",
             "status.notLoggedIn" to "Не авторизован",
             "dialog.inputFor" to "Ввод для {0}",
-            "dialog.enterArg" to "Введите аргумент ''{0}'' ({1}):"
+            "dialog.enterArg" to "Введите аргумент ''{0}'' ({1}):",
+
+            // Команды (названия для кнопок)
+            "command.add.button" to "Добавить",
+            "command.add_if_max.button" to "Добавить если макс.",
+            "command.add_if_min.button" to "Добавить если мин.",
+            "command.clear.button" to "Очистить",
+            "command.execute_script.button" to "Выполнить скрипт",
+            "command.filter_by_engine_power.button" to "Фильтр по мощности",
+            "command.help.button" to "Помощь",
+            "command.info.button" to "Информация",
+            "command.login.button" to "Логин (команда)",
+            "command.min_by_name.button" to "Мин. по имени",
+            "command.register.button" to "Регистрация (команда)",
+            "command.remove_any_by_engine_power.button" to "Удал. по мощности",
+            "command.remove_by_id.button" to "Удалить по ID",
+            "command.remove_first.button" to "Удалить первый",
+            "command.show.button" to "Показать все",
+            "command.update_id.button" to "Обновить по ID"
         )
 
         translations[CANADIAN_ENGLISH] = mapOf(
@@ -113,7 +130,24 @@ object LocaleManager {
             "status.disconnected" to "Disconnected",
             "status.notLoggedIn" to "Not logged in",
             "dialog.inputFor" to "Input for {0}",
-            "dialog.enterArg" to "Enter argument ''{0}'' ({1}):"
+            "dialog.enterArg" to "Enter argument ''{0}'' ({1}):",
+
+            "command.add.button" to "Add",
+            "command.add_if_max.button" to "Add If Max",
+            "command.add_if_min.button" to "Add If Min",
+            "command.clear.button" to "Clear",
+            "command.execute_script.button" to "Execute Script",
+            "command.filter_by_engine_power.button" to "Filter by Engine Power",
+            "command.help.button" to "Help",
+            "command.info.button" to "Info",
+            "command.login.button" to "Login (command)",
+            "command.min_by_name.button" to "Min by Name",
+            "command.register.button" to "Register (command)",
+            "command.remove_any_by_engine_power.button" to "Remove by Engine Power",
+            "command.remove_by_id.button" to "Remove by ID",
+            "command.remove_first.button" to "Remove First",
+            "command.show.button" to "Show All",
+            "command.update_id.button" to "Update by ID"
         )
 
         // --- Эстонский ---
@@ -153,7 +187,24 @@ object LocaleManager {
             "status.disconnected" to "Ühenduseta",
             "status.notLoggedIn" to "Sisse logimata",
             "dialog.inputFor" to "Sisend {0} jaoks",
-            "dialog.enterArg" to "Sisesta argument ''{0}'' ({1}):"
+            "dialog.enterArg" to "Sisesta argument ''{0}'' ({1}):",
+            "command.add.button" to "Lisa",
+            "command.add_if_max.button" to "Lisa kui maksimaalne",
+            "command.add_if_min.button" to "Lisa kui minimaalne",
+            "command.clear.button" to "Tühjenda",
+            "command.execute_script.button" to "Käivita skript",
+            "command.filter_by_engine_power.button" to "Filtreeri mootori võimsuse järgi",
+            "command.help.button" to "Abi",
+            "command.info.button" to "Info",
+            "command.login.button" to "Logi sisse (käsk)",
+            "command.min_by_name.button" to "Minimaalne nime järgi",
+            "command.register.button" to "Registreeri (käsk)",
+            "command.remove_any_by_engine_power.button" to "Eemalda mootori võimsuse järgi",
+            "command.remove_by_id.button" to "Eemalda ID järgi",
+            "command.remove_first.button" to "Eemalda esimene",
+            "command.show.button" to "Näita kõiki",
+            "command.update_id.button" to "Uuenda ID järgi"
+
         )
 
         // --- Болгарский ---
@@ -193,7 +244,24 @@ object LocaleManager {
             "status.disconnected" to "Несвързан",
             "status.notLoggedIn" to "Не сте влезли",
             "dialog.inputFor" to "Въвеждане за {0}",
-            "dialog.enterArg" to "Въведете аргумент ''{0}'' ({1}):"
+            "dialog.enterArg" to "Въведете аргумент ''{0}'' ({1}):",
+
+            "command.add.button" to "Добави",
+            "command.add_if_max.button" to "Добави ако е макс",
+            "command.add_if_min.button" to "Добави ако е мин",
+            "command.clear.button" to "Изчисти",
+            "command.execute_script.button" to "Изпълни скрипт",
+            "command.filter_by_engine_power.button" to "Филтрирай по мощност",
+            "command.help.button" to "Помощ",
+            "command.info.button" to "Информация",
+            "command.login.button" to "Вход (команда)",
+            "command.min_by_name.button" to "Мин по име",
+            "command.register.button" to "Регистрация (команда)",
+            "command.remove_any_by_engine_power.button" to "Премахни по мощност",
+            "command.remove_by_id.button" to "Премахни по ID",
+            "command.remove_first.button" to "Премахни първия",
+            "command.show.button" to "Покажи всички",
+            "command.update_id.button" to "Обнови по ID"
         )
     }
 
@@ -221,7 +289,6 @@ object LocaleManager {
         currentLocaleProperty.addListener { _, _, _ ->
             stringProp.set(getString(key, *args))
         }
-
         return stringProp
     }
 }
