@@ -1,7 +1,7 @@
 package db
 
 import model.User
-import utils.PasswordHasher.hashPassword
+import util.PasswordHasher.hashPassword
 import java.sql.SQLException
 import java.util.logging.Logger
 

@@ -1,9 +1,8 @@
 package gui
 
-// --- Импорты: Объединяем из обеих версий ---
 import app.MainApp
-import common.ArgumentType // Из второй версии (использовался в showArgumentInputDialog)
-import common.CommandArgument // Из первой (для showArgumentInputDialog)
+import common.ArgumentType
+import common.CommandArgument // Убедись, что этот импорт есть, если используется в CommandDescriptor
 import common.CommandDescriptor
 import common.Request
 import core.ApiClient
@@ -11,25 +10,40 @@ import javafx.application.Platform
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import javafx.fxml.FXML
-import javafx.geometry.Insets // Из первой (для showArgumentInputDialog)
-import javafx.scene.canvas.Canvas // Из второй
+import javafx.geometry.Insets
+import javafx.scene.canvas.Canvas
 import javafx.scene.control.*
 import javafx.scene.control.cell.PropertyValueFactory
-import javafx.scene.layout.GridPane // Из первой (для showArgumentInputDialog)
-import javafx.scene.layout.Pane // Из второй
+import javafx.scene.layout.GridPane
+import javafx.scene.layout.Pane
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
-import javafx.stage.FileChooser // Из первой (оставляем)
+import javafx.scene.text.Text // Для локализации Text элементов
+import javafx.stage.FileChooser
 import javafx.stage.Stage
+import javafx.util.Callback
+import model.Coordinates // Убедись, что импорт есть
 import model.FuelType
 import model.Vehicle
 import model.VehicleType
-// javafx.scene.control.Dialog и ButtonBar.ButtonData уже были в первой, оставляем
+import util.LocaleManager // НАШ LocaleManager
+import java.util.Locale
+import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 class MainController {
 
-    // --- @FXML Поля: Берем из ВТОРОЙ версии (она новее и содержит поля для карты) ---
+    // --- @FXML Поля, которые есть в твоем последнем FXML ---
+    @FXML private lateinit var appTitleTextMain: Text
+    @FXML private lateinit var languageComboBoxMain: ComboBox<Locale> // Предполагаем, что этот fx:id есть в FXML
+    @FXML private lateinit var mainTabPane: TabPane // Если нужно управлять им
     @FXML private lateinit var mapTab: Tab
+    @FXML private lateinit var tableTab: Tab // Для вкладки "Таблица"
+    @FXML private lateinit var commandsTitleText: Text
+
     @FXML private lateinit var mapPane: Pane
     @FXML private lateinit var mapCanvas: Canvas
     @FXML private lateinit var commandsVBox: VBox
@@ -37,7 +51,6 @@ class MainController {
     @FXML private lateinit var connectionStatusLabel: Label
     @FXML private lateinit var logoutButton: Button
 
-    // Поля для TableView (одинаковы в обеих версиях, берем любые)
     @FXML private lateinit var vehicleTableView: TableView<Vehicle>
     @FXML private lateinit var idColumn: TableColumn<Vehicle, Int>
     @FXML private lateinit var nameColumn: TableColumn<Vehicle, String>
@@ -50,198 +63,318 @@ class MainController {
     @FXML private lateinit var fuelTypeColumn: TableColumn<Vehicle, FuelType?>
     @FXML private lateinit var userIdColumn: TableColumn<Vehicle, Int>
 
-    // --- Остальные поля: Берем из ВТОРОЙ версии ---
     private lateinit var apiClient: ApiClient
     private lateinit var mainApp: MainApp
     private lateinit var currentStage: Stage
     private lateinit var mapVisualizationManager: MapVisualizationManager
 
     private val commandRegistry = mutableMapOf<String, CommandDescriptor>()
-    private var mapDataLoadedAtLeastOnce = false // Из второй
+    private var mapDataLoadedAtLeastOnce = false
     private val vehicleData: ObservableList<Vehicle> = FXCollections.observableArrayList()
 
-    // --- Метод initialize(): Берем из ВТОРОЙ версии (с логикой карты), добавим очистку commandsVBox ---
     fun initialize() {
         println("MainController: initialize() called.")
-        commandsVBox.children.clear() // Добавлено из первой версии
-        logoutButton.isDisable = true
+        // Проверки isInitialized для @FXML полей перед использованием
+        if (::commandsVBox.isInitialized) commandsVBox.children.clear()
+        if (::logoutButton.isInitialized) logoutButton.isDisable = true // Обновится в refreshUIState
 
-        setupTableColumns() // Было и там, и там, содержимое setupTableColumns берем из второй
-        vehicleTableView.items = vehicleData
+        if (::vehicleTableView.isInitialized) {
+            setupTableColumns() // Настройка CellValueFactory
+            vehicleTableView.items = vehicleData
+        } else {
+            println("WARN: MainController - vehicleTableView not initialized!")
+        }
 
-        Platform.runLater {
-            if (::mapCanvas.isInitialized) {
-                mapVisualizationManager = MapVisualizationManager(mapCanvas) { clickedVehicle ->
-                    showVehicleInfo(clickedVehicle)
+        // Инициализация ComboBox для выбора языка
+        if (::languageComboBoxMain.isInitialized) {
+            languageComboBoxMain.items.addAll(LocaleManager.supportedLocales)
+            languageComboBoxMain.value = LocaleManager.currentLocale
+            languageComboBoxMain.setCellFactory { LanguageListCell() } // LanguageListCell.kt должен быть в проекте
+            languageComboBoxMain.buttonCell = LanguageListCell()
+            languageComboBoxMain.valueProperty().addListener { _, _, newLocale ->
+                if (newLocale != null && newLocale != LocaleManager.currentLocale) {
+                    LocaleManager.currentLocale = newLocale
                 }
-                if (::mapPane.isInitialized) {
-                    mapCanvas.widthProperty().bind(mapPane.widthProperty())
-                    mapCanvas.heightProperty().bind(mapPane.heightProperty())
-                    mapCanvas.widthProperty().addListener { _ -> mapVisualizationManager.redrawAll() }
-                    mapCanvas.heightProperty().addListener { _ -> mapVisualizationManager.redrawAll() }
+            }
+        } else {
+            println("WARN: MainController - languageComboBoxMain not initialized! Check FXML for fx:id=\"languageComboBoxMain\".")
+        }
 
-                    if (mapCanvas.scene != null) {
-                        initialMapAndTableLoad()
-                    } else {
-                        mapCanvas.sceneProperty().addListener { _, oldS, newS ->
-                            if (oldS == null && newS != null) {
-                                initialMapAndTableLoad()
+        // Слушатель для обновления UI при смене локали
+        LocaleManager.currentLocaleProperty.addListener { _, _, newLocale ->
+            println("MainController: Locale changed to $newLocale, updating UI.")
+            updateLocalizedTexts() // Обновляем все текстовые метки
+            if (::vehicleTableView.isInitialized) {
+                setupLocalizedTableRenderers() // Перенастраиваем CellFactory с новой локалью
+                vehicleTableView.refresh() // Просим таблицу перерисоваться
+            }
+        }
+        // Первоначальная установка текстов и рендереров
+        updateLocalizedTexts()
+        if (::vehicleTableView.isInitialized) setupLocalizedTableRenderers()
+
+
+        Platform.runLater { // Логика инициализации карты
+            if (::mapCanvas.isInitialized && ::mapPane.isInitialized) {
+                mapVisualizationManager = MapVisualizationManager(mapCanvas) { clickedVehicle ->
+                    showVehicleInfo(clickedVehicle) // Этот метод тоже нужно будет локализовать
+                }
+                mapCanvas.widthProperty().bind(mapPane.widthProperty())
+                mapCanvas.heightProperty().bind(mapPane.heightProperty())
+                mapCanvas.widthProperty().addListener { _ -> if(::mapVisualizationManager.isInitialized) mapVisualizationManager.redrawAll() }
+                mapCanvas.heightProperty().addListener { _ -> if(::mapVisualizationManager.isInitialized) mapVisualizationManager.redrawAll() }
+
+                if (mapCanvas.scene != null) {
+                    initialMapAndTableLoad()
+                } else {
+                    mapCanvas.sceneProperty().addListener { _, oldS, newS ->
+                        if (oldS == null && newS != null) {
+                            initialMapAndTableLoad()
+                        }
+                    }
+                }
+            } else {
+                println("MainController: ERROR - mapCanvas or mapPane was not initialized by FXML loader!")
+            }
+        }
+    }
+
+    // Метод для обновления всех локализуемых текстов в UI
+    private fun updateLocalizedTexts() {
+        println("MainController: updateLocalizedTexts() for locale ${LocaleManager.currentLocale}")
+        if (::currentStage.isInitialized) {
+            currentStage.titleProperty().unbind() // Отвязываем на случай, если было привязано ранее
+            currentStage.title = LocaleManager.getString("main.appTitle")
+        }
+
+        if (::appTitleTextMain.isInitialized) appTitleTextMain.textProperty().bind(LocaleManager.getObservableString("main.appTitle"))
+        if (::logoutButton.isInitialized) logoutButton.textProperty().bind(LocaleManager.getObservableString("main.button.logout"))
+
+        if (::mapTab.isInitialized) mapTab.textProperty().bind(LocaleManager.getObservableString("main.tab.map"))
+        if (::tableTab.isInitialized) tableTab.textProperty().bind(LocaleManager.getObservableString("main.tab.table"))
+        if (::commandsTitleText.isInitialized) commandsTitleText.textProperty().bind(LocaleManager.getObservableString("main.text.commands"))
+
+        // Заголовки колонок TableView
+        if (::idColumn.isInitialized) idColumn.textProperty().bind(LocaleManager.getObservableString("column.id"))
+        if (::nameColumn.isInitialized) nameColumn.textProperty().bind(LocaleManager.getObservableString("column.name"))
+        if (::coordXColumn.isInitialized) coordXColumn.textProperty().bind(LocaleManager.getObservableString("column.coordX"))
+        if (::coordYColumn.isInitialized) coordYColumn.textProperty().bind(LocaleManager.getObservableString("column.coordY"))
+        if (::creationDateColumn.isInitialized) creationDateColumn.textProperty().bind(LocaleManager.getObservableString("column.creationDate"))
+        if (::enginePowerColumn.isInitialized) enginePowerColumn.textProperty().bind(LocaleManager.getObservableString("column.enginePower"))
+        if (::distanceColumn.isInitialized) distanceColumn.textProperty().bind(LocaleManager.getObservableString("column.distance"))
+        if (::typeColumn.isInitialized) typeColumn.textProperty().bind(LocaleManager.getObservableString("column.type"))
+        if (::fuelTypeColumn.isInitialized) fuelTypeColumn.textProperty().bind(LocaleManager.getObservableString("column.fuelType"))
+        if (::userIdColumn.isInitialized) userIdColumn.textProperty().bind(LocaleManager.getObservableString("column.userId"))
+
+        updateCommandDisplayItself() // Для обновления Tooltips и плейсхолдера
+        refreshUIState() // Обновить динамические части (currentUserLabel, connectionStatusLabel)
+    }
+
+    // Настройка CellValueFactory (как было)
+    private fun setupTableColumns() {
+        if (!::vehicleTableView.isInitialized) return
+        // Проверки isInitialized для каждой колонки
+        if (::idColumn.isInitialized) idColumn.cellValueFactory = PropertyValueFactory("id")
+        if (::nameColumn.isInitialized) nameColumn.cellValueFactory = PropertyValueFactory("name")
+        if (::coordXColumn.isInitialized) coordXColumn.setCellValueFactory { cellData -> javafx.beans.property.SimpleIntegerProperty(cellData.value.coordinates.x).asObject() }
+        if (::coordYColumn.isInitialized) coordYColumn.setCellValueFactory { cellData -> javafx.beans.property.SimpleFloatProperty(cellData.value.coordinates.y).asObject() }
+        if (::creationDateColumn.isInitialized) creationDateColumn.cellValueFactory = PropertyValueFactory("creationDate")
+        if (::enginePowerColumn.isInitialized) enginePowerColumn.cellValueFactory = PropertyValueFactory("enginePower")
+        if (::distanceColumn.isInitialized) distanceColumn.cellValueFactory = PropertyValueFactory("distanceTravelled")
+        if (::typeColumn.isInitialized) typeColumn.cellValueFactory = PropertyValueFactory("type")
+        if (::fuelTypeColumn.isInitialized) fuelTypeColumn.cellValueFactory = PropertyValueFactory("fuelType")
+        if (::userIdColumn.isInitialized) userIdColumn.cellValueFactory = PropertyValueFactory("userId")
+    }
+
+    // Настройка CellFactory для форматирования с учетом локали
+    private fun setupLocalizedTableRenderers() {
+        if (!::vehicleTableView.isInitialized) return
+        println("MainController: setupLocalizedTableRenderers() for locale ${LocaleManager.currentLocale}")
+
+        val numberCellFactoryProvider: (Int) -> Callback<TableColumn<Vehicle, Number?>, TableCell<Vehicle, Number?>> = { maxFractionDigits ->
+            Callback { _ ->
+                object : TableCell<Vehicle, Number?>() {
+                    override fun updateItem(item: Number?, empty: Boolean) {
+                        super.updateItem(item, empty)
+                        text = if (empty || item == null) null else {
+                            try {
+                                val nf = NumberFormat.getNumberInstance(LocaleManager.currentLocale)
+                                nf.maximumFractionDigits = maxFractionDigits
+                                nf.isGroupingUsed = true // Для разделителей тысяч, если нужно
+                                nf.format(item)
+                            } catch (e: IllegalArgumentException) {
+                                System.err.println("Error formatting number $item for locale ${LocaleManager.currentLocale}: ${e.message}")
+                                item.toString() // Fallback
                             }
                         }
                     }
-                } else {
-                    println("MainController: ERROR - mapPane was not initialized by FXML loader!")
                 }
-            } else {
-                println("MainController: ERROR - mapCanvas was NOT initialized by FXML loader!")
+            }
+        }
+        // Применяем CellFactory к колонкам, убедившись, что они инициализированы
+        if (::idColumn.isInitialized) (idColumn as TableColumn<Vehicle, Number?>).setCellFactory(numberCellFactoryProvider(0))
+        if (::coordXColumn.isInitialized) (coordXColumn as TableColumn<Vehicle, Number?>).setCellFactory(numberCellFactoryProvider(0))
+        if (::coordYColumn.isInitialized) (coordYColumn as TableColumn<Vehicle, Number?>).setCellFactory(numberCellFactoryProvider(1))
+        if (::enginePowerColumn.isInitialized) (enginePowerColumn as TableColumn<Vehicle, Number?>).setCellFactory(numberCellFactoryProvider(2))
+        if (::distanceColumn.isInitialized) (distanceColumn as TableColumn<Vehicle, Number?>).setCellFactory(numberCellFactoryProvider(2))
+        if (::userIdColumn.isInitialized) (userIdColumn as TableColumn<Vehicle, Number?>).setCellFactory(numberCellFactoryProvider(0))
+
+        if (::creationDateColumn.isInitialized) {
+            creationDateColumn.setCellFactory { _ ->
+                object : TableCell<Vehicle, Long>() {
+                    override fun updateItem(item: Long?, empty: Boolean) {
+                        super.updateItem(item, empty)
+                        text = if (empty || item == null || item == 0L) null else {
+                            try {
+                                val instant = Instant.ofEpochMilli(item)
+                                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+                                    .withLocale(LocaleManager.currentLocale)
+                                    .withZone(ZoneId.systemDefault()) // Важно для корректного смещения времени
+                                    .format(instant)
+                            } catch (e: Exception) {
+                                System.err.println("Error formatting date $item for locale ${LocaleManager.currentLocale}: ${e.message}")
+                                item.toString() // Fallback
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    // --- Метод setupTableColumns(): Берем из ВТОРОЙ версии (с SimpleIntegerProperty и т.д.) ---
-    private fun setupTableColumns() {
-        idColumn.cellValueFactory = PropertyValueFactory("id")
-        nameColumn.cellValueFactory = PropertyValueFactory("name")
-        // Используем cellValueFactory для координат из второй версии, так как они корректно работают с геттерами
-        // или напрямую с полями объекта Coordinates, если PropertyValueFactory не справляется с вложенностью
-        coordXColumn.setCellValueFactory { cellData -> javafx.beans.property.SimpleIntegerProperty(cellData.value.coordinates.x).asObject() }
-        coordYColumn.setCellValueFactory { cellData -> javafx.beans.property.SimpleFloatProperty(cellData.value.coordinates.y).asObject() }
-        creationDateColumn.cellValueFactory = PropertyValueFactory("creationDate") // TODO: Format
-        enginePowerColumn.cellValueFactory = PropertyValueFactory("enginePower")
-        distanceColumn.cellValueFactory = PropertyValueFactory("distanceTravelled")
-        typeColumn.cellValueFactory = PropertyValueFactory("type")
-        fuelTypeColumn.cellValueFactory = PropertyValueFactory("fuelType")
-        userIdColumn.cellValueFactory = PropertyValueFactory("userId")
-    }
-
-    // --- Метод initialMapAndTableLoad(): Из ВТОРОЙ версии ---
     private fun initialMapAndTableLoad() {
-        println("MainController: initialMapAndTableLoad. Canvas ready. ApiClient init: ${::apiClient.isInitialized}")
         if (!::apiClient.isInitialized) return
-
         if (apiClient.isConnected() && apiClient.getCurrentUserCredentials() != null) {
-            fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
+            if (::mapVisualizationManager.isInitialized) fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
             refreshVehicleTableData()
         }
     }
 
-    // --- Методы setApiClient, setMainApp, setCurrentStage, userLoggedIn:
-    // В userLoggedIn() берем логику из ВТОРОЙ версии (с fetchAndDisplayMapObjects)
-    // Остальные идентичны или почти идентичны, оставляем как есть (из любой версии).
     fun setApiClient(apiClient: ApiClient) {
-        println("MainController: setApiClient() called.")
         this.apiClient = apiClient
         setupApiClientListeners()
-        // В первой версии было:
-        // val cachedDescriptors = apiClient.getCachedCommandDescriptors()
-        // if (cachedDescriptors != null) { ... commandRegistry.clear() ... }
-        // Во второй:
-        apiClient.getCachedCommandDescriptors()?.let { updateCommandRegistryAndDisplay(it) } // Это более Kotlin-way
-        refreshUIState()
+        apiClient.getCachedCommandDescriptors()?.let { updateCommandRegistryAndDisplay(it) }
+        refreshUIState() // Вызовет updateLocalizedTexts через цепочку
     }
 
     fun setMainApp(mainApp: MainApp) { this.mainApp = mainApp }
-    fun setCurrentStage(stage: Stage) { this.currentStage = stage }
 
-    fun userLoggedIn() { // Из ВТОРОЙ ВЕРСИИ
+    fun setCurrentStage(stage: Stage) {
+        this.currentStage = stage
+        if (::currentStage.isInitialized) { // Устанавливаем заголовок при первой установке
+            currentStage.title = LocaleManager.getString("main.appTitle")
+            // Слушатель на смену локали для заголовка окна, если он не привязан через property
+            // Добавляем его один раз, чтобы не дублировать при каждом вызове setCurrentStage
+            // (хотя setCurrentStage обычно вызывается один раз)
+            LocaleManager.currentLocaleProperty.addListener { _, _, _ ->
+                if (currentStage.isShowing) {
+                    currentStage.title = LocaleManager.getString("main.appTitle")
+                }
+            }
+        }
+    }
+
+    fun userLoggedIn() {
         println("MainController: userLoggedIn() signal received.")
-        refreshUIState()
-        if (apiClient.isConnected()) {
-            fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
+        refreshUIState() // Обновит тексты и UI компоненты
+        if (::apiClient.isInitialized && apiClient.isConnected()) {
+            if (::mapVisualizationManager.isInitialized) fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
             refreshVehicleTableData()
         }
     }
 
-    // --- Метод refreshUIState(): Берем из ВТОРОЙ версии (с mapVisualizationManager.redrawAll()) ---
+    // Обновленный refreshUIState для использования LocaleManager
     private fun refreshUIState() {
-        if (!::apiClient.isInitialized) {
-            println("MainController: refreshUIState - apiClient not initialized yet.")
-            return
-        }
-        Platform.runLater {
-            println("MainController: Refreshing UI State. Connected: ${apiClient.isConnected()}, User: ${apiClient.getCurrentUserCredentials()?.first}, Commands: ${commandRegistry.size}")
-            val creds = apiClient.getCurrentUserCredentials()
-            currentUserLabel.text = if (creds != null) "User: ${creds.first}" else "User: Not logged in"
-            logoutButton.isDisable = creds == null
-            connectionStatusLabel.text = if (apiClient.isConnected()) "Connection: Connected" else "Connection: Disconnected"
+        if (!::apiClient.isInitialized) { return }
 
-            updateCommandDisplayItself()
-            if(::mapVisualizationManager.isInitialized) { // Проверка перед вызовом
-                mapVisualizationManager.redrawAll()
+        Platform.runLater {
+            val creds = apiClient.getCurrentUserCredentials()
+            val userStatusText = if (creds != null) creds.first else LocaleManager.getString("status.notLoggedIn")
+
+            if (::currentUserLabel.isInitialized) {
+                currentUserLabel.textProperty().unbind() // Сначала отвязываем, чтобы избежать конфликтов
+                currentUserLabel.text = "${LocaleManager.getString("main.label.currentUser")} $userStatusText"
             }
 
-            // Логика из первой версии для обновления таблицы, если она пуста, уже есть в userLoggedIn и onConnectionStatusChanged
-            // if (creds != null && apiClient.isConnected() && vehicleData.isEmpty()) {
-            //    refreshVehicleTableData()
-            // }
+            if (::logoutButton.isInitialized) logoutButton.isDisable = creds == null
+
+            val connectionTextKey = if (apiClient.isConnected()) "status.connected" else "status.disconnected"
+            if (::connectionStatusLabel.isInitialized) {
+                connectionStatusLabel.textProperty().unbind()
+                connectionStatusLabel.text = "${LocaleManager.getString("main.label.connectionStatus")} ${LocaleManager.getString(connectionTextKey)}"
+            }
+
+            updateCommandDisplayItself()
+            if (::mapVisualizationManager.isInitialized) mapVisualizationManager.redrawAll()
+
+            if (creds != null && apiClient.isConnected() && vehicleData.isEmpty() && !mapDataLoadedAtLeastOnce) {
+                if (::mapVisualizationManager.isInitialized) fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
+                refreshVehicleTableData()
+            } else if (creds == null) { // Если не залогинен, очищаем данные
+                vehicleData.clear()
+                if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
+                mapDataLoadedAtLeastOnce = false
+            }
         }
     }
 
-    // --- Метод setupApiClientListeners(): Берем из ВТОРОЙ версии (с fetchAndDisplayMapObjects при реконнекте) ---
     private fun setupApiClientListeners() {
+        if (!::apiClient.isInitialized) return
         apiClient.onCommandDescriptorsUpdated = { descriptorsFromServer ->
             Platform.runLater {
-                println("MainController: Listener onCommandDescriptorsUpdated received ${descriptorsFromServer.size} descriptors.")
                 updateCommandRegistryAndDisplay(descriptorsFromServer)
-                // Логика обновления таблицы из первой версии (если команды пришли, а таблица пуста)
-                // val creds = apiClient.getCurrentUserCredentials()
-                // if (creds != null && apiClient.isConnected() && vehicleData.isEmpty() && commandRegistry.isNotEmpty()) {
-                //    refreshVehicleTableData() // Эта логика уже есть в onConnectionStatusChanged и userLoggedIn, возможно, здесь избыточна
-                // }
             }
         }
-
         apiClient.onConnectionStatusChanged = { isConnected, message ->
             Platform.runLater {
-                val statusMsg = message ?: if (isConnected) "Connection established." else "Disconnected."
-                println("MainController: Listener onConnectionStatusChanged. Connected: $isConnected, Message: $statusMsg")
-
+                println("MainController: Connection status changed. Connected: $isConnected, Message: $message")
                 if (isConnected) {
                     val currentCreds = apiClient.getCurrentUserCredentials()
                     if (currentCreds != null) {
-                        println("MainController: Connection (re-)established for ${currentCreds.first}.")
-                        fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
+                        if (::mapVisualizationManager.isInitialized) fetchAndDisplayMapObjects(animate = !mapDataLoadedAtLeastOnce)
                         refreshVehicleTableData()
                     } else {
-                        println("MainController: Connection established, but user not logged in.")
                         if (::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
                         vehicleData.clear()
                         mapDataLoadedAtLeastOnce = false
                     }
-                } else {
-                    println("MainController: Connection lost.")
                 }
+                // refreshUIState() вызовет обновление текстов с учетом нового статуса соединения
                 refreshUIState()
             }
         }
     }
 
-    // --- Метод updateCommandRegistryAndDisplay(): Из ВТОРОЙ версии ---
     private fun updateCommandRegistryAndDisplay(descriptors: List<CommandDescriptor>) {
+        if (!::apiClient.isInitialized) return
         commandRegistry.clear()
         descriptors.forEach { commandRegistry[it.name.lowercase()] = it }
         println("MainController: commandRegistry updated. New size: ${commandRegistry.size}")
         updateCommandDisplayItself()
     }
 
-    // --- Метод updateCommandDisplayItself(): Логика почти идентична, берем из ВТОРОЙ (с Platform.runLater)
-    // В первой версии не было Platform.runLater, но он здесь уместен.
-    // Добавление execute_script идентично в обеих.
+    // Обновленный updateCommandDisplayItself для локализации
     private fun updateCommandDisplayItself() {
-        Platform.runLater { // Из второй версии
-            println("MainController: updateCommandDisplayItself. commandRegistry size: ${commandRegistry.size}, User: ${apiClient.getCurrentUserCredentials()?.first}")
+        Platform.runLater {
+            if (!::commandsVBox.isInitialized || !::apiClient.isInitialized) return@runLater
             commandsVBox.children.clear()
             val currentUser = apiClient.getCurrentUserCredentials()
-            // Логика displayableDescriptors из ПЕРВОЙ версии (она чуть полнее с учетом execute_script)
             val displayableDescriptors = mutableListOf<CommandDescriptor>()
+
             if (currentUser != null) {
-                displayableDescriptors.addAll(this.commandRegistry.values)
-                if (this.commandRegistry.values.none { it.name.equals("execute_script", ignoreCase = true) }) {
+                displayableDescriptors.addAll(this.commandRegistry.values) // Берем дескрипторы из реестра
+
+                // Обработка execute_script, если его нет от сервера
+                val execScriptName = "execute_script"
+                if (displayableDescriptors.none { it.name.equals(execScriptName, ignoreCase = true) }) {
                     displayableDescriptors.add(
                         CommandDescriptor(
-                            name = "execute_script",
-                            description = "Execute commands from a script file.",
-                            arguments = listOf(common.CommandArgument("filename", common.ArgumentType.STRING, false, "Path to the script file")),
+                            name = execScriptName,
+                            // Описание для execute_script берем по ключу, если есть
+                            description = LocaleManager.getString("command.execute_script.description",
+                                "Execute commands from a script file."), // Fallback
+                            arguments = listOf(common.CommandArgument("filename", ArgumentType.STRING, false,
+                                LocaleManager.getString("arg.execute_script.filename.description", "Path to script"))),
                             requiresVehicleObject = false
                         )
                     )
@@ -249,207 +382,260 @@ class MainController {
             }
 
             if (displayableDescriptors.isEmpty()) {
-                val placeholderText = when {
-                    !apiClient.isConnected() -> "Not connected. Commands unavailable."
-                    currentUser == null && apiClient.isConnected() -> "Connected. Please login to see commands." // Из второй
-                    currentUser != null && apiClient.isConnected() -> "Connected. Loading commands or no commands available..." // Из второй
-                    else -> "Commands unavailable." // Из второй
+                val placeholderKey = when {
+                    !apiClient.isConnected() -> "placeholder.notConnected"
+                    currentUser == null && apiClient.isConnected() -> "placeholder.pleaseLogin"
+                    currentUser != null && apiClient.isConnected() && commandRegistry.isEmpty() -> "placeholder.loadingCommands"
+                    currentUser != null && apiClient.isConnected() -> "placeholder.noCommands"
+                    else -> "placeholder.commandsUnavailable"
                 }
-                commandsVBox.children.add(Label(placeholderText).apply { font = Font.font("Tahoma", 15.0) })
+                commandsVBox.children.add(Label(LocaleManager.getString(placeholderKey)).apply { font = Font.font("Tahoma", 15.0) })
                 return@runLater
             }
 
-            println("MainController: Creating ${displayableDescriptors.size} command buttons.") // Из первой
             displayableDescriptors.sortedBy { it.name }.forEach { desc ->
-                val button = Button(desc.name.replaceFirstChar { it.titlecase() }) // titlecase() из второй, но это мелкое отличие
+                val buttonTextKey = "command.${desc.name.lowercase()}.button" // Ключ для текста кнопки
+                val buttonText = LocaleManager.getString(buttonTextKey, desc.name.replaceFirstChar { it.titlecase() }) // Fallback
+                val button = Button(buttonText)
                 button.maxWidth = Double.MAX_VALUE; button.prefHeight = 40.0; button.isWrapText = true
-                button.font = Font.font("Tahoma", 14.0); button.tooltip = Tooltip(desc.description)
+                button.font = Font.font("Tahoma", 14.0)
+
+                val tooltipKey = "command.${desc.name.lowercase()}.description"
+                button.tooltip = Tooltip(LocaleManager.getString(tooltipKey, desc.description)) // Fallback
+
                 button.setOnAction { handleCommandExecution(desc) }
                 commandsVBox.children.add(button)
             }
         }
     }
 
-    // --- Метод fetchAndDisplayMapObjects(): Из ВТОРОЙ версии (заглушка createTestVehicles там же) ---
     private fun fetchAndDisplayMapObjects(animate: Boolean = false) {
-        val currentUserCreds = apiClient.getCurrentUserCredentials()
-        if (currentUserCreds == null || !apiClient.isConnected()) {
-            if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
-            if (currentUserCreds == null) mapDataLoadedAtLeastOnce = false
+        if (!::apiClient.isInitialized || !::mapVisualizationManager.isInitialized) {
+            println("WARN: fetchAndDisplayMapObjects - apiClient or mapVisualizationManager not initialized.")
             return
         }
+        val currentUserCreds = apiClient.getCurrentUserCredentials()
+        if (currentUserCreds == null || !apiClient.isConnected()) {
+            mapVisualizationManager.replaceAllVehicles(emptyList()) // Очищаем карту, если нет пользователя или соединения
+            if (currentUserCreds == null) mapDataLoadedAtLeastOnce = false
+            println("INFO: fetchAndDisplayMapObjects - User not logged in or not connected. Clearing map.")
+            return
+        }
+
         println("MainController: Fetching vehicles for map display... Animate: $animate, MapDataLoadedOnce: $mapDataLoadedAtLeastOnce")
+
+        // Эффективная анимация только при первой успешной загрузке данных
         val effectiveAnimate = animate && !mapDataLoadedAtLeastOnce
 
         val showRequest = Request(
-            body = listOf("show"), username = currentUserCreds.first, password = currentUserCreds.second
+            body = listOf("show"), // Команда для получения всех объектов
+            username = currentUserCreds.first,
+            password = currentUserCreds.second
         )
+
         Thread {
             val response = apiClient.sendRequestAndWaitForResponse(showRequest)
             Platform.runLater {
-                if (response?.vehicles != null && !response.responseText.lowercase().contains("error:")) { // Используем response.vehicles
+                if (response?.vehicles != null && !response.responseText.lowercase().contains("error")) { // Обрати внимание на contains("error") без двоеточия
                     val vehiclesFromServer = response.vehicles
+                    println("MainController: Fetched ${vehiclesFromServer.size} vehicles for map.")
                     if (effectiveAnimate) {
-                        if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
-                        vehiclesFromServer.forEach { if(::mapVisualizationManager.isInitialized) mapVisualizationManager.addVehicleAnimated(it) }
-                        if (vehiclesFromServer.isNotEmpty()) mapDataLoadedAtLeastOnce = true
+                        mapVisualizationManager.replaceAllVehicles(emptyList()) // Очищаем перед анимацией добавления
+                        vehiclesFromServer.forEach { mapVisualizationManager.addVehicleAnimated(it) }
                     } else {
-                        if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(vehiclesFromServer)
-                        if (vehiclesFromServer.isNotEmpty() && !mapDataLoadedAtLeastOnce) mapDataLoadedAtLeastOnce = true
+                        mapVisualizationManager.replaceAllVehicles(vehiclesFromServer)
                     }
+                    // Устанавливаем флаг, если данные были успешно загружены (даже если их 0)
+                    // Но имеет смысл ставить true, только если реально что-то есть,
+                    // чтобы при следующем логине без данных анимация снова сработала.
+                    // Поэтому лучше так:
+                    mapDataLoadedAtLeastOnce = vehiclesFromServer.isNotEmpty()
+
                 } else if (response != null && response.responseText.contains("Collection is empty", ignoreCase = true)) {
-                    if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
-                    mapDataLoadedAtLeastOnce = false // Коллекция пуста, значит не загружено
-                }
-                else {
-                    val errorDetail = response?.responseText ?: "No response or timeout."
-                    showErrorAlert("Map Data Error", "Failed to fetch vehicle data: $errorDetail")
-                    if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
+                    println("MainController: Server reports collection is empty for map.")
+                    mapVisualizationManager.replaceAllVehicles(emptyList())
+                    mapDataLoadedAtLeastOnce = false // Коллекция пуста, значит не было успешной загрузки с данными
+                } else {
+                    val errorDetail = response?.responseText ?: LocaleManager.getString("error.noResponseDetail")
+                    // Локализуем сообщение об ошибке
+                    showErrorAlert("error.dialogTitle", "error.mapData", errorDetail)
+                    mapVisualizationManager.replaceAllVehicles(emptyList()) // Очищаем карту при ошибке
                 }
             }
         }.start()
     }
 
-    // --- Метод handleLogout(): Из ВТОРОЙ версии (с mapVisualizationManager и mapDataLoadedAtLeastOnce) ---
     @FXML
     private fun handleLogout() {
-        println("Logout button clicked by ${apiClient.getCurrentUserCredentials()?.first ?: "Guest"}")
+        if (!::apiClient.isInitialized || !::mainApp.isInitialized) {
+            println("WARN: handleLogout - apiClient or mainApp not initialized.")
+            return
+        }
+        // Используем ключ для лога, если хотим его локализовать (хотя это лог, не UI)
+        val userNameForLog = apiClient.getCurrentUserCredentials()?.first ?: LocaleManager.getString("text.guest")
+        println("Logout button clicked by $userNameForLog") // println для отладки можно оставить нелокализованным
+
         apiClient.clearCurrentUserCredentials()
-        this.commandRegistry.clear()
-        if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
-        vehicleData.clear()
+        this.commandRegistry.clear() // Проверка, если commandRegistry lateinit
+
+        if (::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
+        vehicleData.clear() // vehicleData это ObservableList, всегда инициализирован
+
         mapDataLoadedAtLeastOnce = false
-        refreshUIState()
+        refreshUIState() // Обновит UI с учетом выхода пользователя
         mainApp.onLogout(currentStage)
     }
 
-    // --- Метод refreshVehicleTableData(): Из ВТОРОЙ версии (с более детальной обработкой response.vehicles) ---
     private fun refreshVehicleTableData() {
+        if (!::apiClient.isInitialized) {
+            println("WARN: refreshVehicleTableData - apiClient not initialized.")
+            return
+        }
         val currentUserCreds = apiClient.getCurrentUserCredentials()
         if (currentUserCreds == null || !apiClient.isConnected()) {
             println("Cannot refresh table: Not logged in or not connected.")
-            vehicleData.clear()
+            vehicleData.clear() // Очищаем таблицу
             return
         }
+
         println("MainController: Requesting vehicle data for table (using 'show' command)...")
         val showRequest = Request(
-            body = listOf("show"), username = currentUserCreds.first, password = currentUserCreds.second
+            body = listOf("show"),
+            username = currentUserCreds.first,
+            password = currentUserCreds.second
         )
+
         Thread {
             val response = apiClient.sendRequestAndWaitForResponse(showRequest)
             Platform.runLater {
-                if (response?.vehicles != null && !response.responseText.lowercase().contains("error:")) {
+                if (response?.vehicles != null && !response.responseText.lowercase().contains("error")) {
                     println("MainController: Received ${response.vehicles.size} vehicles for table from server.")
                     updateTableWithVehicles(response.vehicles)
                 } else if (response != null && response.responseText.contains("Collection is empty", ignoreCase = true)) {
                     println("MainController: Server reports collection is empty for table.")
                     updateTableWithVehicles(emptyList())
-                }
-                else {
-                    showErrorAlert("Table Update Error", "Failed to retrieve vehicle data. Response: ${response?.responseText}")
-                    vehicleData.clear() // Очищаем при ошибке
+                } else {
+                    val errorDetail = response?.responseText ?: LocaleManager.getString("error.noResponseDetail")
+                    showErrorAlert("error.dialogTitle", "error.tableUpdate", errorDetail)
+                    vehicleData.clear() // Очищаем таблицу при ошибке
                 }
             }
         }.start()
     }
 
-    // --- Метод updateTableWithVehicles(): Из ВТОРОЙ версии (с setAll) ---
-    private fun updateTableWithVehicles(vehicles: List<Vehicle>) { // vehicles не nullable во второй версии, это лучше
-        vehicleData.setAll(vehicles) // setAll эффективнее чем clear + addAll
-        println("MainController: TableView updated with ${vehicles.size} items.")
-    }
+    private fun updateTableWithVehicles(vehicles: List<Vehicle>) { /* ... как было ... */ }
 
-    // --- Метод showVehicleInfo(): Из ВТОРОЙ версии ---
+    // Обновленный showVehicleInfo для локализации
     private fun showVehicleInfo(vehicle: Vehicle) {
         val alert = Alert(Alert.AlertType.INFORMATION)
-        alert.title = "Vehicle Information"
-        alert.headerText = "Details for Vehicle ID: ${vehicle.id}"
-        alert.contentText = """
-            Name: ${vehicle.name}
-            Owner ID: ${vehicle.userId}
-            Coordinates: (X: ${vehicle.coordinates.x}, Y: ${vehicle.coordinates.y})
-            Engine Power: ${vehicle.enginePower}
-            Type: ${vehicle.type?.name ?: "N/A"}
-            Fuel Type: ${vehicle.fuelType?.name ?: "N/A"}
-            Distance Travelled: ${vehicle.distanceTravelled ?: "N/A"}
-        """.trimIndent()
+        if (::currentStage.isInitialized) alert.initOwner(currentStage)
+        alert.title = LocaleManager.getString("vehicleInfo.title")
+        alert.headerText = LocaleManager.getString("vehicleInfo.header", vehicle.id)
+
+        val nf = NumberFormat.getNumberInstance(LocaleManager.currentLocale)
+        val content = StringBuilder()
+        content.appendLine("${LocaleManager.getString("vehicleInfo.name")}: ${vehicle.name}")
+        content.appendLine("${LocaleManager.getString("vehicleInfo.ownerId")}: ${vehicle.userId}")
+        content.appendLine("${LocaleManager.getString("vehicleInfo.coordinates")}: (X: ${nf.format(vehicle.coordinates.x)}, Y: ${nf.format(vehicle.coordinates.y)})") // Форматируем X и Y
+        content.appendLine("${LocaleManager.getString("vehicleInfo.enginePower")}: ${nf.format(vehicle.enginePower)}")
+        content.appendLine("${LocaleManager.getString("vehicleInfo.type")}: ${vehicle.type?.let { LocaleManager.getString("vehicleType.${it.name.lowercase()}", it.name) } ?: LocaleManager.getString("text.notApplicable")}")
+        content.appendLine("${LocaleManager.getString("vehicleInfo.fuelType")}: ${vehicle.fuelType?.let { LocaleManager.getString("fuelType.${it.name.lowercase()}", it.name) } ?: LocaleManager.getString("text.notApplicable")}")
+        content.appendLine("${LocaleManager.getString("vehicleInfo.distanceTravelled")}: ${vehicle.distanceTravelled?.let { nf.format(it) } ?: LocaleManager.getString("text.notApplicable")}")
+
+        alert.contentText = content.toString()
         alert.showAndWait()
     }
 
-    // --- Метод createTestVehicles(): Из ВТОРОЙ версии (удалим его, если он не нужен для реальной работы) ---
-    // private fun createTestVehicles(username: String): List<Vehicle> { ... }
-
-    // --- Методы showInfoAlert, showErrorAlert: Идентичны, оставляем ---
-    private fun showInfoAlert(title: String, content: String) {
-        Alert(Alert.AlertType.INFORMATION).apply {
-            this.title = title; this.headerText = null; this.contentText = content; this.showAndWait()
+    // Обновленные Alert'ы для использования ключей по умолчанию
+    private fun showInfoAlert(titleKey: String, contentKey: String, vararg args: Any) {
+        Platform.runLater {
+            Alert(Alert.AlertType.INFORMATION).apply {
+                if (::currentStage.isInitialized) initOwner(currentStage)
+                this.title = LocaleManager.getString(titleKey)
+                this.headerText = null
+                this.contentText = LocaleManager.getString(contentKey, *args)
+                this.showAndWait()
+            }
         }
+    }
+    private fun showErrorAlert(titleKey: String, contentKey: String, vararg args: Any) {
+        Platform.runLater {
+            Alert(Alert.AlertType.ERROR).apply {
+                if (::currentStage.isInitialized) initOwner(currentStage)
+                this.title = LocaleManager.getString(titleKey)
+                this.headerText = null
+                this.contentText = LocaleManager.getString(contentKey, *args)
+                this.showAndWait()
+            }
+        }
+    }
+    // Старые версии для обратной совместимости (пометить как @Deprecated или удалить позже)
+    private fun showInfoAlert(title: String, content: String) {
+        showInfoAlert("info.dialogTitle.generic", content, title) // Используем ключи для обертки
     }
     private fun showErrorAlert(title: String, content: String) {
-        Alert(Alert.AlertType.ERROR).apply {
-            this.title = title; this.headerText = null; this.contentText = content; this.showAndWait()
-        }
+        showErrorAlert("error.dialogTitle.generic", content, title) // Используем ключи для обертки
     }
 
-    // --- Метод handleCommandExecution(): ОБЪЕДИНЯЕМ ---
+
+    // Обновленный handleCommandExecution для локализации
     private fun handleCommandExecution(descriptor: CommandDescriptor) {
-        println("UI: Command button clicked: ${descriptor.name}")
+        if (!::apiClient.isInitialized || !::mainApp.isInitialized) return
 
         val currentCreds = apiClient.getCurrentUserCredentials()
         if (currentCreds == null) {
-            showErrorAlert("Authentication Error", "You must be logged in to execute this command.")
+            showErrorAlert("error.dialogTitle", "error.mustBeLoggedIn")
             return
         }
-
         if (!apiClient.isConnected()) {
-            // Код для попытки реконнекта (одинаков в обеих версиях)
-            showInfoAlert("Connection", "Not connected. Attempting to connect for command '${descriptor.name}'...")
+            showInfoAlert("info.dialogTitle", "connection.attemptingReconnectForCommand", descriptor.name)
             Thread {
                 val connected = apiClient.connectIfNeeded()
                 Platform.runLater {
                     if (connected) {
-                        showInfoAlert("Connection", "Reconnected. Please try your command '${descriptor.name}' again.")
+                        showInfoAlert("info.dialogTitle", "connection.reconnectedPleaseRetry", descriptor.name)
                     } else {
-                        showErrorAlert("Connection Error", "Failed to connect to server. Command '${descriptor.name}' not sent.")
+                        showErrorAlert("error.dialogTitle", "error.connectFailedForCommand", descriptor.name)
                     }
                 }
             }.start()
             return
         }
 
-        // --- Сбор аргументов команды: Берем из ПЕРВОЙ версии (с showArgumentInputDialog) ---
         var collectedArgs: List<String>? = null
-        // Фильтр аргументов из ПЕРВОЙ версии (более точный, чем ArgumentType.NO_ARGS во второй)
-        val argumentsToAskFor = descriptor.arguments.filter {
-            it.type != common.ArgumentType.NO_ARGS && !it.isOptional
-        }
+        val argumentsToAskFor = descriptor.arguments.filter { it.type != common.ArgumentType.NO_ARGS && !it.isOptional }
         if (argumentsToAskFor.isNotEmpty()) {
             collectedArgs = showArgumentInputDialog(descriptor.name, argumentsToAskFor)
             if (collectedArgs == null) {
-                showInfoAlert("Cancelled", "Command '${descriptor.name}' execution cancelled by user (argument input).")
+                showInfoAlert("info.dialogTitle", "message.commandCancelledUserArgs", descriptor.name)
                 return
             }
         } else {
             collectedArgs = emptyList()
-            println("Command '${descriptor.name}' does not require mandatory argument input.")
         }
 
-        // --- Сбор объекта Vehicle: Берем из ПЕРВОЙ версии (с заглушкой VehicleInputDialog) ---
         var vehicleForRequest: Vehicle? = null
         if (descriptor.requiresVehicleObject) {
-            println("Command '${descriptor.name}' requires Vehicle object. Showing Vehicle form...")
-            // TODO: Здесь должен быть вызов вашего реального VehicleInputDialog
-            val vehicleDialog = VehicleInputDialog(currentStage, null) // Используем класс, который мы обсуждали
-            val resultVehicle = vehicleDialog.showAndWaitWithResult()
-            if (resultVehicle != null) {
-                vehicleForRequest = resultVehicle
+            // Используем конструктор VehicleInputDialog БЕЗ apiClient, как ты просила
+            val vehicleDialog = VehicleInputDialog(currentStage, null)
+            val resultVehicleFromDialog = vehicleDialog.showAndWaitWithResult()
+
+            if (resultVehicleFromDialog != null) {
+                // Если это новый объект (id обычно 0 или не установлен в диалоге)
+                // Устанавливаем userId и creationDate
+                vehicleForRequest = resultVehicleFromDialog.copy(
+                    // id здесь не трогаем, если для нового сервер его генерирует.
+                    // Если диалог вернул id=0 для нового, так и оставим.
+                    // Если это редактирование, id должен быть от existingVehicle в диалоге.
+                    userId = 0,
+                    creationDate = if (resultVehicleFromDialog.id == 0) System.currentTimeMillis() else resultVehicleFromDialog.creationDate
+                )
             } else {
-                showInfoAlert("Cancelled", "Vehicle input cancelled for command '${descriptor.name}'.")
+                showInfoAlert("info.dialogTitle", "message.vehicleInputCancelled", descriptor.name)
                 return
             }
         }
 
-        // --- Формирование Request: Идентично ---
         val request = Request(
             body = listOf(descriptor.name) + (collectedArgs ?: emptyList()),
             vehicle = vehicleForRequest,
@@ -457,30 +643,27 @@ class MainController {
             password = currentCreds.second
         )
 
-        // --- Отправка запроса и обработка ответа: Берем логику из ВТОРОЙ версии (с обновлением карты) ---
-        showInfoAlert("Processing", "Sending command '${descriptor.name}' to server...")
+        showInfoAlert("info.dialogTitle","message.processingAndSending", descriptor.name)
         Thread {
             val response = apiClient.sendRequestAndWaitForResponse(request)
             Platform.runLater {
                 if (response != null) {
-                    showInfoAlert("Server Response - ${descriptor.name}", response.responseText)
+                    val responseTitleKey = if (response.responseText.lowercase().startsWith("error")) "error.dialogTitle" else "response.server.title"
+                    // TODO: Локализовать response.responseText, если это ключ, а не готовый текст
+                    showInfoAlert(responseTitleKey, response.responseText)
 
                     if (response.responseText.contains("Authentication failed", ignoreCase = true)) {
                         apiClient.clearCurrentUserCredentials()
-                        // refreshUIState() // refreshUIState будет вызван из mainApp.onLogout
                         mainApp.onLogout(currentStage)
                     } else if (!response.responseText.lowercase().startsWith("error")) {
                         val commandsThatModifyData = setOf(
-                            "add", "add_if_max", "add_if_min", "update_id", "update", // Добавил "update"
+                            "add", "add_if_max", "add_if_min", "update_id", "update",
                             "remove_by_id", "remove_first", "remove_any_by_engine_power", "clear",
-                            "remove_greater", "remove_lower" // Добавил из первой версии
-                            // execute_script обрабатывается отдельно
+                            "remove_greater", "remove_lower", "removebyenginepower"
                         )
                         val commandNameLower = descriptor.name.lowercase()
-
                         if (commandsThatModifyData.contains(commandNameLower) || commandNameLower == "execute_script") {
-                            println("Command ${descriptor.name} might have changed data. Refreshing map and table.")
-                            fetchAndDisplayMapObjects(animate = false)
+                            if (::mapVisualizationManager.isInitialized) fetchAndDisplayMapObjects(animate = false)
                             refreshVehicleTableData()
                         } else if (commandNameLower == "show") {
                             if (response.vehicles != null) {
@@ -495,44 +678,41 @@ class MainController {
                         }
                     }
                 } else {
-                    showErrorAlert("Server Error", "No response or timeout for command '${descriptor.name}'.")
+                    showErrorAlert("error.dialogTitle", "error.noResponseOrTimeout", descriptor.name)
                 }
             }
         }.start()
     }
 
-
-    // --- Методы showArgumentInputDialog и showDialogValidationError: Копируем из ПЕРВОЙ версии ---
+    // Обновленный showArgumentInputDialog
     private fun showArgumentInputDialog(commandName: String, argumentsToAskFor: List<common.CommandArgument>): List<String>? {
-        if (argumentsToAskFor.isEmpty()) {
-            return emptyList()
-        }
+        if (argumentsToAskFor.isEmpty()) return emptyList()
 
         val dialog = Dialog<List<String>>()
-        dialog.initOwner(currentStage) // Привязка к currentStage
-        dialog.title = "Input for $commandName"
-        dialog.headerText = "Please enter arguments for command: $commandName"
+        if (::currentStage.isInitialized) dialog.initOwner(currentStage) // Привязываем к текущему окну
+        dialog.title = LocaleManager.getString("dialog.inputFor", commandName)
+        dialog.headerText = LocaleManager.getString("dialog.header.enterArgsFor", commandName)
 
-        val okButtonType = ButtonType("OK", ButtonBar.ButtonData.OK_DONE)
-        dialog.dialogPane.buttonTypes.addAll(okButtonType, ButtonType.CANCEL)
+        val okButtonType = ButtonType(LocaleManager.getString("button.ok"), ButtonBar.ButtonData.OK_DONE)
+        val cancelButtonType = ButtonType(LocaleManager.getString("button.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE)
+        dialog.dialogPane.buttonTypes.addAll(okButtonType, cancelButtonType)
 
         val grid = GridPane().apply {
-            hgap = 10.0
-            vgap = 10.0
-            padding = Insets(20.0, 20.0, 10.0, 20.0)
+            hgap = 10.0; vgap = 10.0; padding = Insets(20.0, 150.0, 10.0, 10.0)
         }
-
         val inputFields = mutableListOf<TextField>()
 
         argumentsToAskFor.forEachIndexed { index, argDesc ->
-            grid.add(Label("${argDesc.name} (${argDesc.type.name.lowercase()}):"), 0, index)
-            val textField = TextField().apply {
-                promptText = argDesc.description ?: argDesc.name
-            }
+            val labelText = LocaleManager.getString("dialog.label.argNameType", argDesc.name, argDesc.type.name.lowercase())
+            grid.add(Label(labelText), 0, index)
+
+            val promptKey = "arg.${commandName.lowercase()}.${argDesc.name.lowercase()}.prompt"
+            val defaultPrompt = argDesc.description ?: argDesc.name
+            val textField = TextField().apply { promptText = LocaleManager.getString(promptKey, defaultPrompt) } // Fallback для prompt
+
             grid.add(textField, 1, index)
             inputFields.add(textField)
         }
-
         dialog.dialogPane.content = grid
         Platform.runLater { inputFields.firstOrNull()?.requestFocus() }
 
@@ -542,26 +722,25 @@ class MainController {
                 for ((i, textField) in inputFields.withIndex()) {
                     val argDesc = argumentsToAskFor[i]
                     val value = textField.text.trim()
-                    if (value.isEmpty() && !argDesc.isOptional) { // !isOptional важно, если мы решим запрашивать опциональные
-                        showDialogValidationError("Argument '${argDesc.name}' is required and cannot be empty.", dialog)
+                    if (value.isEmpty() && !argDesc.isOptional) { // Проверка только для обязательных
+                        showDialogValidationError(LocaleManager.getString("validation.error.argRequired", argDesc.name), dialog)
                         return@setResultConverter null
                     }
-                    when (argDesc.type) {
-                        common.ArgumentType.INTEGER -> {
-                            try { value.toInt() } catch (e: NumberFormatException) {
-                                showDialogValidationError("Argument '${argDesc.name}' must be a valid integer. You entered: '$value'", dialog)
+                    // Пропускаем валидацию типа для опциональных пустых строк
+                    if (value.isNotEmpty() || !argDesc.isOptional) {
+                        when (argDesc.type) {
+                            common.ArgumentType.INTEGER -> try { value.toInt() } catch (e: NumberFormatException) {
+                                showDialogValidationError(LocaleManager.getString("validation.error.argMustBeInt", argDesc.name, value), dialog)
                                 return@setResultConverter null
                             }
-                        }
-                        common.ArgumentType.DOUBLE -> {
-                            try { value.toDouble() } catch (e: NumberFormatException) {
-                                showDialogValidationError("Argument '${argDesc.name}' must be a valid number (double). You entered: '$value'", dialog)
+                            common.ArgumentType.DOUBLE -> try { value.toDouble() } catch (e: NumberFormatException) {
+                                showDialogValidationError(LocaleManager.getString("validation.error.argMustBeDouble", argDesc.name, value), dialog)
                                 return@setResultConverter null
                             }
+                            else -> {} // STRING, NO_ARGS
                         }
-                        common.ArgumentType.STRING, common.ArgumentType.NO_ARGS -> { /* NO_ARGS сюда не попадут из-за фильтра */ }
                     }
-                    enteredValues.add(value)
+                    enteredValues.add(value) // Добавляем значение (может быть пустым для опционального)
                 }
                 enteredValues
             } else null
@@ -569,12 +748,16 @@ class MainController {
         return dialog.showAndWait().orElse(null)
     }
 
+    // Обновленный showDialogValidationError
     private fun showDialogValidationError(message: String, ownerDialog: Dialog<*>) {
-        Alert(Alert.AlertType.ERROR).apply {
-            initOwner(ownerDialog.dialogPane.scene.window)
-            title = "Validation Error"
-            headerText = "Invalid input"
-            contentText = message
-        }.showAndWait()
+        Platform.runLater { // Важно для вызова из setResultConverter
+            Alert(Alert.AlertType.ERROR).apply {
+                if (ownerDialog.isShowing) initOwner(ownerDialog.dialogPane.scene.window) // Привязываем к родительскому диалогу
+                else if (::currentStage.isInitialized) initOwner(currentStage) // Или к главному окну
+                title = LocaleManager.getString("validation.error.title")
+                headerText = LocaleManager.getString("validation.error.header")
+                contentText = message // Сообщение уже подготовлено (локализовано) вызывающей стороной
+            }.showAndWait()
+        }
     }
 }

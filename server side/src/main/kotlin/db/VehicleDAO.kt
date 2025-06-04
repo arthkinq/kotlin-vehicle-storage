@@ -162,9 +162,7 @@ class VehicleDAO {
     fun getAllVehicles(): List<Vehicle> {
         val vehicles = mutableListOf<Vehicle>()
         val sql = """
-        SELECT v.*, u.username, u.first_name, u.last_name 
-        FROM vehicles v
-        LEFT JOIN users u ON v.user_id = u.id
+        SELECT * FROM vehicles
     """
         try {
             DatabaseManager.getConnection().use { conn ->

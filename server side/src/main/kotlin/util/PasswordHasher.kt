@@ -1,4 +1,4 @@
-package utils
+package util
 
 import org.apache.commons.codec.digest.DigestUtils
 

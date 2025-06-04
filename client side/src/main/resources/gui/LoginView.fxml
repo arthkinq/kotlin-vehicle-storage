@@ -5,11 +5,13 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
 
-<VBox alignment="CENTER" prefHeight="300.0" prefWidth="500.0" spacing="10.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="gui.LoginController">
+<!-- fx:id для корневого VBox, если он нужен в контроллере (сейчас не используется) -->
+<VBox fx:id="loginRootVBox" alignment="CENTER" prefHeight="300.0" prefWidth="500.0" spacing="10.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="gui.LoginController">
     <padding>
         <Insets bottom="20.0" left="30.0" right="30.0" top="20.0" />
     </padding>
-    <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Vehicle manager" textAlignment="CENTER">
+    <!-- ИСПРАВЛЕНО: fx:id="appTitleText" -->
+    <Text fx:id="appTitleText" strokeType="OUTSIDE" strokeWidth="0.0" textAlignment="CENTER">
         <font>
             <Font name="Tahoma Bold" size="30.0" />
         </font>
@@ -17,7 +19,8 @@
             <Insets bottom="5.0" />
         </VBox.margin>
     </Text>
-    <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Авторизация" textAlignment="CENTER">
+    <!-- ИСПРАВЛЕНО: fx:id="headerText" -->
+    <Text fx:id="headerText" strokeType="OUTSIDE" strokeWidth="0.0" textAlignment="CENTER">
         <font>
             <Font name="Tahoma" size="28.0" />
         </font>
@@ -27,12 +30,13 @@
     </Text>
 
     <HBox alignment="CENTER_LEFT" spacing="10.0">
-        <Label minWidth="100.0" text="Логин:">
+        <!-- fx:id="usernameLabel" - уже совпадает с полем в контроллере -->
+        <Label fx:id="usernameLabel" minWidth="100.0">
             <font>
                 <Font name="Tahoma" size="22.0" />
             </font>
         </Label>
-        <TextField fx:id="usernameField" prefHeight="35.0" prefWidth="300.0" promptText="Ваш логин" HBox.hgrow="ALWAYS">
+        <TextField fx:id="usernameField" prefHeight="35.0" prefWidth="300.0" HBox.hgrow="ALWAYS">
             <font>
                 <Font name="Tahoma" size="18.0" />
             </font>
@@ -40,19 +44,27 @@
     </HBox>
 
     <HBox alignment="CENTER_LEFT" spacing="10.0">
-        <Label minWidth="100.0" text="Пароль:">
+        <!-- fx:id="passwordLabel" - уже совпадает с полем в контроллере -->
+        <Label fx:id="passwordLabel" minWidth="100.0">
             <font>
                 <Font name="Tahoma" size="22.0" />
             </font>
         </Label>
-        <PasswordField fx:id="passwordField" prefHeight="35.0" prefWidth="300.0" promptText="Ваш пароль" HBox.hgrow="ALWAYS">
+        <PasswordField fx:id="passwordField" prefHeight="35.0" prefWidth="300.0" HBox.hgrow="ALWAYS">
             <font>
                 <Font name="Tahoma" size="18.0" />
             </font>
         </PasswordField>
     </HBox>
 
-          <Text fx:id="statusText" fill="RED" strokeType="OUTSIDE" strokeWidth="0.0" textAlignment="CENTER" wrappingWidth="370.0">
+    <!-- fx:id="languageComboBox" - уже совпадает с полем в контроллере -->
+    <ComboBox fx:id="languageComboBox" prefWidth="Infinity" maxWidth="Infinity" VBox.vgrow="NEVER">
+        <VBox.margin>
+            <Insets top="10.0" bottom="5.0" />
+        </VBox.margin>
+    </ComboBox>
+
+    <Text fx:id="statusText" fill="RED" strokeType="OUTSIDE" strokeWidth="0.0" textAlignment="CENTER" wrappingWidth="370.0">
         <font>
             <Font name="System Italic" size="16.0" />
         </font>
@@ -60,17 +72,17 @@
             <Insets />
         </VBox.margin>
     </Text>
-     <Button fx:id="loginButton" mnemonicParsing="false" onAction="#handleLogin" text="Войти">
-         <font>
-             <Font name="Tahoma" size="32.0" />
-         </font>
-      <VBox.margin>
-         <Insets />
-      </VBox.margin>
-     </Button>
-     <Button fx:id="registerButton" mnemonicParsing="false" onAction="#handleRegister" text="Зарегистрироваться">
-         <font>
-             <Font name="Tahoma" size="18.0" />
-         </font>
-     </Button>
+    <Button fx:id="loginButton" mnemonicParsing="false" onAction="#handleLogin">
+        <font>
+            <Font name="Tahoma" size="32.0" />
+        </font>
+        <VBox.margin>
+            <Insets />
+        </VBox.margin>
+    </Button>
+    <Button fx:id="registerButton" mnemonicParsing="false" onAction="#handleRegister">
+        <font>
+            <Font name="Tahoma" size="18.0" />
+        </font>
+    </Button>
 </VBox>
