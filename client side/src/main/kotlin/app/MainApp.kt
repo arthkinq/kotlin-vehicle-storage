@@ -17,10 +17,10 @@ import myio.InputManager
 class MainApp : Application() {
 
     private lateinit var apiClient: ApiClient
-    private lateinit var ioManager: IOManager // Для общих логов MainApp и для ApiClient
+    private lateinit var ioManager: IOManager
 
     @Volatile
-    private var mainWindowIsActive = false // Флаг, показывающий, что активно главное окно, а не окно логина
+    private var mainWindowIsActive = false
 
     override fun init() {
         super.init()
@@ -38,7 +38,6 @@ class MainApp : Application() {
     }
 
     override fun start(primaryStage: Stage) {
-        // primaryStage будет использоваться для всех сцен (логин и главное окно)
         try {
             showLoginScreen(primaryStage)
         } catch (e: Exception) {
@@ -61,22 +60,19 @@ class MainApp : Application() {
             val scene = Scene(root)
             stage.scene = scene
             stage.isResizable = false
-            stage.minWidth = 500.0
+            stage.minWidth = 700.0
             stage.minHeight = 400.0
-            stage.width = 500.0
+            stage.width = 700.0
             stage.height = 500.0
             stage.centerOnScreen()
 
             stage.setOnCloseRequest {
-                // Если окно логина закрывается до того, как было показано главное окно
                 if (!mainWindowIsActive) {
                     ioManager.outputLine("Login window closed by user. Exiting application.")
-                    Platform.exit() // Завершаем приложение
+                    Platform.exit()
                 }
-                // Если mainWindowIsActive == true, значит, мы уже перешли в главное окно,
-                // и у него будет свой обработчик закрытия. Этот обработчик не должен срабатывать.
             }
-            if (!stage.isShowing) { // Показываем, только если еще не показано (на случай вызова из onLogout)
+            if (!stage.isShowing) {
                 stage.show()
             }
         } catch (e: Exception) {
@@ -84,11 +80,10 @@ class MainApp : Application() {
         }
     }
 
-    // Вызывается из LoginController при успешном логине
     fun onLoginSuccess(loginStage: Stage, username: String) {
         ioManager.outputLine("Login successful for $username! Proceeding to main application window.")
-        mainWindowIsActive = true // Устанавливаем флаг
-        showMainWindow(loginStage, username) // Передаем Stage и имя пользователя
+        mainWindowIsActive = true
+        showMainWindow(loginStage, username)
     }
 
     private fun showMainWindow(currentStage: Stage, loggedInUsername: String) {
@@ -101,18 +96,17 @@ class MainApp : Application() {
             mainController.setApiClient(apiClient)
             mainController.setMainApp(this)
             mainController.setCurrentStage(currentStage)
-// mainController.setLoggedInUser(loggedInUsername) // ЭТОТ ВЫЗОВ УБИРАЕМ
-            mainController.userLoggedIn()  // Явно передаем имя пользователя
+            mainController.userLoggedIn()
 
-            val scene = Scene(root, 1200.0, 708.0) // Размеры из твоего FXML
+            val scene = Scene(root, 1200.0, 708.0)
             currentStage.scene = scene
-            currentStage.minWidth = 1200.0
+            currentStage.minWidth = 1500.0
             currentStage.minHeight = 708.0
             currentStage.centerOnScreen()
 
             currentStage.setOnCloseRequest {
                 ioManager.outputLine("Main window close request. Exiting application.")
-                Platform.exit() // При закрытии главного окна - выходим из приложения
+                Platform.exit()
             }
             ioManager.outputLine("Main window shown for user $loggedInUsername.")
         } catch (e: Exception) {
@@ -120,20 +114,16 @@ class MainApp : Application() {
         }
     }
 
-    // Вызывается из MainController при нажатии кнопки Logout
     fun onLogout(mainStage: Stage) {
         ioManager.outputLine("User logged out. Returning to login screen.")
-        // mainWindowIsActive будет сброшен в showLoginScreen
-
-
-        showLoginScreen(mainStage) // Переиспользуем тот же Stage для окна логина
+        showLoginScreen(mainStage)
     }
 
     override fun stop() {
         super.stop()
         ioManager.outputLine("Application stopping...")
         if (::apiClient.isInitialized && apiClient.isRunning()) {
-            apiClient.close() // Блокирующий вызов, дождется завершения nioThread
+            apiClient.close()
             ioManager.outputLine("ApiClient stopped from MainApp.stop().")
         } else if (::apiClient.isInitialized) {
             ioManager.outputLine("ApiClient was initialized but not running (or already closed).")
@@ -146,15 +136,13 @@ class MainApp : Application() {
     private fun handleFatalError(message: String, throwable: Throwable? = null) {
         val fullMessage = if (throwable != null) "$message: ${throwable.message}" else message
         ioManager.error(fullMessage)
-        throwable?.printStackTrace(System.err) // Выводим стектрейс в System.err
+        throwable?.printStackTrace(System.err)
         if (Platform.isFxApplicationThread()) {
-             Alert(Alert.AlertType.ERROR, fullMessage).showAndWait() // Можно показать Alert
+             Alert(Alert.AlertType.ERROR, fullMessage).showAndWait()
         }
         Platform.exit()
     }
 }
-
-// Точка входа для запуска JavaFX приложения
 fun main() {
     Application.launch(MainApp::class.java)
 }

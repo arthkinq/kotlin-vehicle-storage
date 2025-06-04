@@ -8,17 +8,15 @@ import javafx.beans.value.ObservableStringValue
 
 object LocaleManager {
 
-    // Определяем поддерживаемые локали
     val RUSSIAN = Locale("ru")
     val ESTONIAN = Locale("et")
     val BULGARIAN = Locale("bg")
-    val CANADIAN_ENGLISH = Locale("en", "CA") // Используем константу из Locale
+    val CANADIAN_ENGLISH = Locale("en", "CA")
 
     // Список поддерживаемых локалей и локаль по умолчанию
     val supportedLocales: List<Locale> = listOf(RUSSIAN, ESTONIAN, BULGARIAN, CANADIAN_ENGLISH)
-    val defaultLocale: Locale = CANADIAN_ENGLISH // По умолчанию английский (Канада)
+    val defaultLocale: Locale = CANADIAN_ENGLISH
 
-    // Observable свойство для текущей локали, чтобы UI мог реагировать на изменения
     val currentLocaleProperty = SimpleObjectProperty<Locale>(defaultLocale)
     var currentLocale: Locale
         get() = currentLocaleProperty.get()
@@ -26,22 +24,18 @@ object LocaleManager {
             if (supportedLocales.contains(value)) {
                 currentLocaleProperty.set(value)
             } else {
-                // Если локаль не поддерживается, используем локаль по умолчанию
                 System.err.println("Warning: Locale $value is not supported. Using default $defaultLocale.")
                 currentLocaleProperty.set(defaultLocale)
             }
         }
 
-    // Хранилище переводов: Map<Локаль, Map<Ключ, Перевод>>
     private val translations = mutableMapOf<Locale, Map<String, String>>()
 
-    // Блок инициализации для загрузки переводов при первом обращении к объекту
     init {
         loadTranslations()
     }
 
     private fun loadTranslations() {
-        // --- Русский ---
         translations[RUSSIAN] = mapOf(
             // LoginView.fxml
             "login.appTitle" to "Менеджер Транспорта",
@@ -52,15 +46,15 @@ object LocaleManager {
             "login.prompt.password" to "Ваш пароль",
             "login.button.login" to "Войти",
             "login.button.register" to "Зарегистрироваться",
-            "login.status.placeholder" to "", // Для statusText, если изначально пустой
+            "login.status.placeholder" to "",
 
             // MainView.fxml
-            "main.appTitle" to "Менеджер Транспорта", // Может быть таким же
+            "main.appTitle" to "Менеджер Транспорта",
             "main.label.connectionStatus" to "Статус соединения:",
             "main.label.currentUser" to "Пользователь:",
             "main.button.logout" to "Выйти",
             "main.tab.map" to "Расположение объектов",
-            "main.tab.table" to "Таблица", // Изменил порядок, как во втором FXML
+            "main.tab.table" to "Таблица",
             "main.text.commands" to "Команды:",
 
             // Колонки TableView
@@ -75,16 +69,13 @@ object LocaleManager {
             "column.fuelType" to "тип топл.",
             "column.userId" to "id польз.",
 
-            // Общие статусы и сообщения (некоторые могут дублироваться, если контекст одинаков)
             "status.connected" to "Подключено",
             "status.disconnected" to "Отключено",
             "status.notLoggedIn" to "Не авторизован",
-            // ... Добавьте сюда все остальные необходимые ключи для сообщений, ошибок, диалогов ...
             "dialog.inputFor" to "Ввод для {0}",
             "dialog.enterArg" to "Введите аргумент ''{0}'' ({1}):"
         )
 
-        // --- Английский (Канада) ---
         translations[CANADIAN_ENGLISH] = mapOf(
             // LoginView.fxml
             "login.appTitle" to "Vehicle Manager",
@@ -206,52 +197,31 @@ object LocaleManager {
         )
     }
 
-    /**
-     * Получает локализованную строку по ключу для текущей локали.
-     * Если перевод отсутствует, пытается получить для локали по умолчанию.
-     * Если и там нет, возвращает сам ключ (и выводит предупреждение).
-     */
     fun getString(key: String): String {
         return translations[currentLocale]?.get(key)
             ?: translations[defaultLocale]?.get(key)
             ?: key.also { System.err.println("Warning: Missing translation for key '$key' in locale '${currentLocale}' and default locale '${defaultLocale}'.") }
     }
 
-    /**
-     * Получает локализованную строку и форматирует ее с переданными аргументами.
-     */
     fun getString(key: String, vararg args: Any): String {
         val pattern = getString(key)
         return MessageFormat.format(pattern, *args)
     }
 
-    /**
-     * Создает ObservableStringValue, который будет автоматически обновляться при смене локали.
-     * Это предпочтительный способ для привязки текста UI элементов в JavaFX.
-     */
     fun getObservableString(key: String): ObservableStringValue {
-        // Создаем SimpleStringProperty, инициализированный текущим переводом
         val stringProp = SimpleStringProperty(getString(key))
-        // Добавляем слушателя к свойству текущей локали
         currentLocaleProperty.addListener { _, _, _ ->
-            // При смене локали обновляем значение нашего SimpleStringProperty
             stringProp.set(getString(key))
         }
         return stringProp
     }
 
-    /**
-     * Создает ObservableStringValue для форматированной строки.
-     * Аргументы для форматирования должны быть НЕ Observable. Если аргументы тоже Observable,
-     * потребуется более сложная привязка (например,Bindings.createStringBinding).
-     */
     fun getObservableString(key: String, vararg args: Any): ObservableStringValue {
         val stringProp = SimpleStringProperty(getString(key, *args))
         currentLocaleProperty.addListener { _, _, _ ->
             stringProp.set(getString(key, *args))
         }
-        // Если сами args могут меняться и являются Observable, здесь потребуется более сложная логика
-        // для перепривязки или использования FXCollections.observableArrayList(args) и т.п.
+
         return stringProp
     }
 }

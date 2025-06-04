@@ -9,7 +9,7 @@ class LanguageListCell : ListCell<Locale>() {
         if (empty || item == null) {
             text = null
         } else {
-            val langName = item.getDisplayLanguage(item) // Имя языка на самом этом языке
+            val langName = item.getDisplayLanguage(item)
             val countryName = item.getDisplayCountry(item)
             text = if (countryName.isNotEmpty()) "$langName ($countryName)" else langName
         }
