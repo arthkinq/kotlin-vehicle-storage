@@ -47,5 +47,11 @@ data class Vehicle(
     override fun hashCode(): Int {
         return id.hashCode() // Хэш-код на основе id
     }
+    fun getCoordinateX() : Int {
+        return coordinates.x
+    }
+    fun getCoordinateY(): Float {
+        return coordinates.y
+    }
 
 }
