@@ -68,7 +68,7 @@ class LoginController {
         this.mainApp = mainApp
     }
 
-    fun setCurrentStage(stage: Stage) {
+    fun  setCurrentStage(stage: Stage) {
         this.currentStage = stage
     }
 

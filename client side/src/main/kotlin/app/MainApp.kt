@@ -61,7 +61,10 @@ class MainApp : Application() {
             val scene = Scene(root)
             stage.scene = scene
             stage.isResizable = false
-            stage.sizeToScene() // Адаптируем размер окна под содержимое сцены логина
+            stage.minWidth = 500.0
+            stage.minHeight = 400.0
+            stage.width = 500.0
+            stage.height = 500.0
             stage.centerOnScreen()
 
             stage.setOnCloseRequest {
@@ -122,6 +125,8 @@ class MainApp : Application() {
     fun onLogout(mainStage: Stage) {
         ioManager.outputLine("User logged out. Returning to login screen.")
         // mainWindowIsActive будет сброшен в showLoginScreen
+
+
         showLoginScreen(mainStage) // Переиспользуем тот же Stage для окна логина
     }
 

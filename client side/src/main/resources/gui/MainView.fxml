@@ -8,22 +8,24 @@
 <VBox maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="708.0" minWidth="1200.0" prefHeight="708.0" prefWidth="1200.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="gui.MainController">
 
     <AnchorPane minWidth="1200.0" prefHeight="975.0" prefWidth="1036.0" VBox.vgrow="ALWAYS">
-        <Text layoutX="14.0" layoutY="46.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Vehicle manager" textAlignment="CENTER" AnchorPane.leftAnchor="14.0" AnchorPane.topAnchor="14.0">
-            <font>
-                <Font name="Tahoma Bold" size="32.0" />
-            </font>
-        </Text>
-        <Label fx:id="currentUserLabel" layoutX="950.0" layoutY="14.0" prefHeight="40.0" prefWidth="200.0" text="User: Not logged in" AnchorPane.rightAnchor="300.0" AnchorPane.topAnchor="14.0"> <!-- Добавлен fx:id и примерный текст -->
-            <font>
-                <Font name="Tahoma" size="18.0" />
-            </font>
-        </Label>
-        <Label fx:id="connectionStatusLabel" layoutX="343.0" layoutY="14.0" prefHeight="40.0" prefWidth="406.0" text="Статус соединения">
-            <font>
-                <Font name="Tahoma" size="32.0" />
-            </font>
-        </Label>
-        <Button fx:id="logoutButton" layoutX="1132.0" layoutY="21.0" onAction="#handleLogout" text="Logout" AnchorPane.rightAnchor="10.0" HBox.hgrow="NEVER" />
+        <HBox alignment="BASELINE_CENTER" prefHeight="100.0" prefWidth="1200.0" spacing="100.0">
+            <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Vehicle manager" textAlignment="CENTER">
+                <font>
+                    <Font name="Tahoma Bold" size="32.0" />
+                </font>
+            </Text>
+            <Label fx:id="connectionStatusLabel" text="Статус соединения">
+                <font>
+                    <Font name="Tahoma" size="18.0" />
+                </font>
+            </Label>
+            <Label fx:id="currentUserLabel" text="User: Not logged in">
+                <font>
+                    <Font name="Tahoma" size="18.0" />
+                </font>
+            </Label>
+            <Button fx:id="logoutButton" onAction="#handleLogout" text="Logout" HBox.hgrow="NEVER" />
+        </HBox>
         <TabPane layoutX="14.0" layoutY="54.0" prefHeight="990.0" prefWidth="1171.0" tabClosingPolicy="UNAVAILABLE" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="54.0">
             <Tab text="Таблица">
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
