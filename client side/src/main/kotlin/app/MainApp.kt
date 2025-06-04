@@ -9,29 +9,46 @@ import javafx.fxml.FXMLLoader
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.stage.Stage
-import myio.ConsoleInputManager
 import myio.ConsoleOutputManager
 import myio.IOManager
+import myio.InputManager
+import java.io.IOException
 
 class MainApp : Application() {
 
     private lateinit var apiClient: ApiClient
-    private lateinit var ioManager: IOManager
+    private lateinit var ioManager: IOManager // Для общих логов MainApp и для ApiClient
 
     @Volatile
-    private var mainWindowShown = false
+    private var mainWindowIsActive = false // Флаг, показывающий, что активно главное окно, а не окно логина
 
     override fun init() {
         super.init()
         ioManager = IOManager(
-            input = ConsoleInputManager(),
+            input = object : InputManager {
+                override fun readLine(): String? {
+                    System.err.println("WARNING: ApiClient.readLine() called in GUI mode!")
+                    return ""
+                }
+                override fun hasInput(): Boolean = false
+            },
             output = ConsoleOutputManager()
         )
         apiClient = ApiClient(ioManager, serverHost = "localhost", serverPort = 8888)
     }
 
     override fun start(primaryStage: Stage) {
-        primaryStage.title = "Login - Transport Manager"
+        // primaryStage будет использоваться для всех сцен (логин и главное окно)
+        try {
+            showLoginScreen(primaryStage)
+        } catch (e: Exception) {
+            handleFatalError("Failed during application startup", e)
+        }
+    }
+
+    private fun showLoginScreen(stage: Stage) {
+        mainWindowIsActive = false
+        stage.title = "Login - Transport Manager"
         try {
             val loader = FXMLLoader(javaClass.getResource("/gui/LoginView.fxml"))
             val root: Parent = loader.load()
@@ -39,39 +56,40 @@ class MainApp : Application() {
             val loginController = loader.getController<LoginController>()
             loginController.setApiClient(apiClient)
             loginController.setMainApp(this)
-            loginController.setCurrentStage(primaryStage)
+            loginController.setCurrentStage(stage)
 
             val scene = Scene(root)
-            primaryStage.scene = scene
-            primaryStage.isResizable = false
-            primaryStage.centerOnScreen()
+            stage.scene = scene
+            stage.isResizable = false
+            stage.sizeToScene() // Адаптируем размер окна под содержимое сцены логина
+            stage.centerOnScreen()
 
-            primaryStage.setOnCloseRequest {
-                if (!mainWindowShown) {
-                    ioManager.outputLine("Login cancelled or window closed. Exiting application.")
-                    Platform.exit()
+            stage.setOnCloseRequest {
+                // Если окно логина закрывается до того, как было показано главное окно
+                if (!mainWindowIsActive) {
+                    ioManager.outputLine("Login window closed by user. Exiting application.")
+                    Platform.exit() // Завершаем приложение
                 }
+                // Если mainWindowIsActive == true, значит, мы уже перешли в главное окно,
+                // и у него будет свой обработчик закрытия. Этот обработчик не должен срабатывать.
             }
-
-            primaryStage.show()
-
+            if (!stage.isShowing) { // Показываем, только если еще не показано (на случай вызова из onLogout)
+                stage.show()
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
-            val errorMsg = "Failed to load LoginView.fxml or unexpected error during startup: ${e.message}"
-            ioManager.error(errorMsg)
-            Platform.exit()
+            handleFatalError("Failed to load LoginView.fxml", e)
         }
     }
 
+    // Вызывается из LoginController при успешном логине
     fun onLoginSuccess(loginStage: Stage, username: String) {
-        ioManager.outputLine("Login successful for $username! Proceeding...")
-        mainWindowShown = true
-        showMainWindow(loginStage, username)
+        ioManager.outputLine("Login successful for $username! Proceeding to main application window.")
+        mainWindowIsActive = true // Устанавливаем флаг
+        showMainWindow(loginStage, username) // Передаем Stage и имя пользователя
     }
 
-
-    private fun showMainWindow(currentStage: Stage, loggedInUsername: String) {
-        currentStage.title = "Vehicle Manager - Main"
+    fun showMainWindow(currentStage: Stage, loggedInUsername: String) {
+        currentStage.title = "Transport Manager - Main"
         try {
             val loader = FXMLLoader(javaClass.getResource("/gui/MainView.fxml"))
             val root: Parent = loader.load()
@@ -80,63 +98,59 @@ class MainApp : Application() {
             mainController.setApiClient(apiClient)
             mainController.setMainApp(this)
             mainController.setCurrentStage(currentStage)
-            mainController.setLoggedInUser(loggedInUsername)
+// mainController.setLoggedInUser(loggedInUsername) // ЭТОТ ВЫЗОВ УБИРАЕМ
+            mainController.userLoggedIn()  // Явно передаем имя пользователя
 
-            val scene = Scene(root)
+            val scene = Scene(root, 1200.0, 708.0) // Размеры из твоего FXML
             currentStage.scene = scene
             currentStage.isResizable = true
             currentStage.minWidth = 1200.0
-            currentStage.minHeight = 200.0
+            currentStage.minHeight = 708.0
             currentStage.centerOnScreen()
 
             currentStage.setOnCloseRequest {
-                ioManager.outputLine("Main window close request from MainApp.")
-                Platform.exit()
+                ioManager.outputLine("Main window close request. Exiting application.")
+                Platform.exit() // При закрытии главного окна - выходим из приложения
             }
             ioManager.outputLine("Main window shown for user $loggedInUsername.")
         } catch (e: Exception) {
-            e.printStackTrace()
-            val errorMsg = "Failed to load or show app.MainView.fxml: ${e.message}"
-            ioManager.error(errorMsg)
-            // Alert(Alert.AlertType.ERROR, errorMsg).showAndWait()
-            mainWindowShown = false
-            Platform.exit()
+            handleFatalError("Failed to load or show MainView.fxml", e)
         }
+    }
+
+    // Вызывается из MainController при нажатии кнопки Logout
+    fun onLogout(mainStage: Stage) {
+        ioManager.outputLine("User logged out. Returning to login screen.")
+        // mainWindowIsActive будет сброшен в showLoginScreen
+        showLoginScreen(mainStage) // Переиспользуем тот же Stage для окна логина
     }
 
     override fun stop() {
         super.stop()
+        ioManager.outputLine("Application stopping...")
         if (::apiClient.isInitialized && apiClient.isRunning()) {
-            apiClient.close()
+            apiClient.close() // Блокирующий вызов, дождется завершения nioThread
             ioManager.outputLine("ApiClient stopped from MainApp.stop().")
+        } else if (::apiClient.isInitialized) {
+            ioManager.outputLine("ApiClient was initialized but not running (or already closed).")
+        } else {
+            ioManager.outputLine("ApiClient was not initialized.")
         }
         ioManager.outputLine("Application stopped.")
     }
 
-    // onLogout и showLoginWindowAgain остаются как в предыдущем ответе
-    fun onLogout(mainStage: Stage) {
-        ioManager.outputLine("User logged out. Returning to login screen.")
-        mainWindowShown = false
-        // Показываем окно логина на том же Stage
-        try {
-            val loader = FXMLLoader(javaClass.getResource("/gui/LoginView.fxml"))
-            val root: Parent = loader.load()
-            val loginController = loader.getController<LoginController>()
-            loginController.setApiClient(apiClient)
-            loginController.setMainApp(this)
-            loginController.setCurrentStage(mainStage)
-
-            val scene = Scene(root)
-            mainStage.title = "Login - Transport Manager"
-            mainStage.scene = scene
-        } catch (e: Exception) {
-            e.printStackTrace()
-            ioManager.error("Failed to re-load LoginView.fxml for logout: ${e.message}")
-            Platform.exit()
+    private fun handleFatalError(message: String, throwable: Throwable? = null) {
+        val fullMessage = if (throwable != null) "$message: ${throwable.message}" else message
+        ioManager.error(fullMessage)
+        throwable?.printStackTrace(System.err) // Выводим стектрейс в System.err
+        if (Platform.isFxApplicationThread()) {
+            // Alert(Alert.AlertType.ERROR, fullMessage).showAndWait() // Можно показать Alert
         }
+        Platform.exit()
     }
 }
 
+// Точка входа для запуска JavaFX приложения
 fun main() {
     Application.launch(MainApp::class.java)
 }

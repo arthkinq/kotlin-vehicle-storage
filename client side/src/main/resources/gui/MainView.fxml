@@ -13,15 +13,21 @@
                 <Font name="Tahoma Bold" size="32.0" />
             </font>
         </Text>
+        <Label fx:id="currentUserLabel" layoutX="950.0" layoutY="14.0" prefHeight="40.0" prefWidth="200.0" text="User: Not logged in" AnchorPane.rightAnchor="300.0" AnchorPane.topAnchor="14.0"> <!-- Добавлен fx:id и примерный текст -->
+            <font>
+                <Font name="Tahoma" size="18.0" />
+            </font>
+        </Label>
         <Label fx:id="connectionStatusLabel" layoutX="343.0" layoutY="14.0" prefHeight="40.0" prefWidth="406.0" text="Статус соединения">
             <font>
                 <Font name="Tahoma" size="32.0" />
             </font>
         </Label>
-        <TabPane layoutX="14.0" layoutY="54.0" prefHeight="990.0" prefWidth="1171.0" tabClosingPolicy="UNAVAILABLE" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0">
+        <Button fx:id="logoutButton" layoutX="1132.0" layoutY="21.0" onAction="#handleLogout" text="Logout" AnchorPane.rightAnchor="10.0" HBox.hgrow="NEVER" />
+        <TabPane layoutX="14.0" layoutY="54.0" prefHeight="990.0" prefWidth="1171.0" tabClosingPolicy="UNAVAILABLE" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="54.0">
             <Tab text="Таблица">
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
-                    <TableView layoutX="226.0" layoutY="7.0" prefHeight="597.0" prefWidth="941.0" AnchorPane.leftAnchor="230.0" AnchorPane.rightAnchor="10.0">
+                    <TableView layoutX="226.0" layoutY="7.0" prefHeight="597.0" prefWidth="941.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="230.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
                         <columns>
                             <TableColumn prefWidth="37.33332061767578" text="id" />
                             <TableColumn prefWidth="88.66664123535156" text="name" />
@@ -30,7 +36,8 @@
                             <TableColumn prefWidth="90.00003051757812" text="creation date" />
                             <TableColumn prefWidth="88.66668701171875" text="engine power" />
                             <TableColumn prefWidth="112.66668701171875" text="distance travelled " />
-                            <TableColumn prefWidth="87.3333740234375" text="creation date" />
+                            <!-- Убедитесь, что у вас нет дублирующихся колонок "creation date" -->
+                            <!-- <TableColumn prefWidth="87.3333740234375" text="creation date" /> -->
                             <TableColumn prefWidth="63.3333740234375" text="type" />
                             <TableColumn prefWidth="117.99993896484375" text="fuel type" />
                             <TableColumn prefWidth="83.3333740234375" text="user id" />
@@ -41,61 +48,14 @@
                             <Font name="Tahoma" size="32.0" />
                         </font>
                     </Text>
-                    <Button layoutX="4.0" layoutY="47.0" mnemonicParsing="false" prefHeight="17.0" prefWidth="215.0" text="Информация о базе данных" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="82.0" mnemonicParsing="false" prefHeight="11.0" prefWidth="215.0" text="Удалить мои записи" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="117.0" mnemonicParsing="false" prefHeight="49.0" prefWidth="215.0" text="Фильтрация по мощности двигателя" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="171.0" mnemonicParsing="false" prefHeight="49.0" prefWidth="215.0" text="Вывод минимального по имени" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="225.0" mnemonicParsing="false" prefHeight="49.0" prefWidth="215.0" text="Удалить элементы по мощности двигателя" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="279.0" mnemonicParsing="false" prefHeight="13.0" prefWidth="215.0" text="Удалить по id" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="314.0" mnemonicParsing="false" prefHeight="13.0" prefWidth="215.0" text="Удалить первый по id" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="349.0" mnemonicParsing="false" prefHeight="13.0" prefWidth="215.0" text="Добавить транспорт" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="384.0" mnemonicParsing="false" prefHeight="13.0" prefWidth="215.0" text="Обновить id" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="419.0" mnemonicParsing="false" prefHeight="68.0" prefWidth="215.0" text="Добавить транспорт, если мощность двигателя максимальная" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
-                    <Button layoutX="4.0" layoutY="492.0" mnemonicParsing="false" prefHeight="68.0" prefWidth="215.0" text="Добавить транспорт, если мощность двигателя минимальная" textAlignment="CENTER" wrapText="true" AnchorPane.leftAnchor="4.0">
-                        <font>
-                            <Font name="Tahoma" size="15.0" />
-                        </font>
-                    </Button>
+                    <!-- УДАЛИТЕ ВСЕ СТАРЫЕ КНОПКИ ОТСЮДА -->
+
+                    <!-- ДОБАВЬТЕ ЭТОТ БЛОК ДЛЯ ДИНАМИЧЕСКИХ КНОПОК -->
+                    <ScrollPane fitToWidth="true" hbarPolicy="NEVER" layoutY="52.0" prefHeight="553.0" prefViewportWidth="215.0" prefWidth="219.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="4.0" AnchorPane.topAnchor="52.0">
+                        <VBox fx:id="commandsVBox" spacing="5.0" style="-fx-padding: 5;" />
+                    </ScrollPane>
+                    <!-- КОНЕЦ БЛОКА ДЛЯ ДИНАМИЧЕСКИХ КНОПОК -->
+
                 </AnchorPane>
             </Tab>
             <Tab text="Расположение объектов">
@@ -105,9 +65,6 @@
                     </ImageView>
                 </ScrollPane>
             </Tab>
-
         </TabPane>
-
-
     </AnchorPane>
 </VBox>
