@@ -8,11 +8,11 @@ import javafx.application.Platform
 import javafx.fxml.FXMLLoader
 import javafx.scene.Parent
 import javafx.scene.Scene
+import javafx.scene.control.Alert
 import javafx.stage.Stage
 import myio.ConsoleOutputManager
 import myio.IOManager
 import myio.InputManager
-import java.io.IOException
 
 class MainApp : Application() {
 
@@ -26,7 +26,7 @@ class MainApp : Application() {
         super.init()
         ioManager = IOManager(
             input = object : InputManager {
-                override fun readLine(): String? {
+                override fun readLine(): String {
                     System.err.println("WARNING: ApiClient.readLine() called in GUI mode!")
                     return ""
                 }
@@ -91,7 +91,7 @@ class MainApp : Application() {
         showMainWindow(loginStage, username) // Передаем Stage и имя пользователя
     }
 
-    fun showMainWindow(currentStage: Stage, loggedInUsername: String) {
+    private fun showMainWindow(currentStage: Stage, loggedInUsername: String) {
         currentStage.title = "Transport Manager - Main"
         try {
             val loader = FXMLLoader(javaClass.getResource("/gui/MainView.fxml"))
@@ -148,7 +148,7 @@ class MainApp : Application() {
         ioManager.error(fullMessage)
         throwable?.printStackTrace(System.err) // Выводим стектрейс в System.err
         if (Platform.isFxApplicationThread()) {
-            // Alert(Alert.AlertType.ERROR, fullMessage).showAndWait() // Можно показать Alert
+             Alert(Alert.AlertType.ERROR, fullMessage).showAndWait() // Можно показать Alert
         }
         Platform.exit()
     }

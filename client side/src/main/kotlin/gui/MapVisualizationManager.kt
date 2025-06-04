@@ -15,7 +15,6 @@ data class MapObject(
     var currentX: Double,
     var currentY: Double,
     var currentSize: Double,
-    // targetX, targetY, targetSize могут быть не нужны, если мы всегда анимируем к значениям из vehicle
     var color: Color,
     var alpha: Double = 1.0,
     var activeAnimation: Animation? = null
@@ -168,7 +167,7 @@ class MapVisualizationManager(
         startAnimationLoopIfNeeded()
     }
 
-    fun updateVehicleAnimated(updatedVehicle: Vehicle) {
+    private fun updateVehicleAnimated(updatedVehicle: Vehicle) {
         val mapObject = displayedObjects.find { it.vehicle.id == updatedVehicle.id }
         if (mapObject == null) {
             addVehicleAnimated(updatedVehicle); return
