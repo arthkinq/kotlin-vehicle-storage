@@ -5,37 +5,63 @@ import common.CommandDescriptor
 import common.Request
 import core.ApiClient
 import javafx.application.Platform
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
 import javafx.fxml.FXML
-import javafx.scene.control.Button
-import javafx.scene.control.Label
-import javafx.scene.control.Alert
-import javafx.scene.control.TextInputDialog // Для примера сбора аргументов
-import javafx.scene.control.Tooltip
+import javafx.scene.control.*
+import javafx.scene.control.cell.PropertyValueFactory
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
 import javafx.stage.FileChooser // Для будущего execute_script
 import javafx.stage.Stage
+import model.FuelType
 import model.Vehicle // Для handleCommandExecution
+import model.VehicleType
 
 class MainController {
+
 
     @FXML private lateinit var commandsVBox: VBox
     @FXML private lateinit var currentUserLabel: Label
     @FXML private lateinit var connectionStatusLabel: Label
     @FXML private lateinit var logoutButton: Button
 
+
+    @FXML private lateinit var vehicleTableView: TableView<Vehicle>
+    @FXML private lateinit var idColumn: TableColumn<Vehicle, Int>
+    @FXML private lateinit var nameColumn: TableColumn<Vehicle, String>
+    @FXML private lateinit var coordXColumn: TableColumn<Vehicle, Int>
+    @FXML private lateinit var coordYColumn: TableColumn<Vehicle, Float>
+    @FXML private lateinit var creationDateColumn: TableColumn<Vehicle, Long>
+    @FXML private lateinit var enginePowerColumn: TableColumn<Vehicle, Double>
+    @FXML private lateinit var distanceColumn: TableColumn<Vehicle, Double?>
+    @FXML private lateinit var typeColumn: TableColumn<Vehicle, VehicleType?>
+    @FXML private lateinit var fuelTypeColumn: TableColumn<Vehicle, FuelType?>
+    @FXML private lateinit var userIdColumn: TableColumn<Vehicle, Int>
     private lateinit var apiClient: ApiClient
     private lateinit var mainApp: MainApp
     private lateinit var currentStage: Stage
 
     private val commandRegistry = mutableMapOf<String, CommandDescriptor>()
-
+    private val vehicleData: ObservableList<Vehicle> = FXCollections.observableArrayList()
     fun initialize() {
         println("MainController: initialize() called.")
         commandsVBox.children.clear()
         logoutButton.isDisable = true
         // Не вызываем refreshUIState() здесь, так как apiClient еще не установлен.
         // Он будет вызван в конце setApiClient().
+        idColumn.cellValueFactory = PropertyValueFactory("id")
+        nameColumn.cellValueFactory = PropertyValueFactory("name")
+        coordXColumn.cellValueFactory = PropertyValueFactory("coordinateX")
+        coordYColumn.cellValueFactory = PropertyValueFactory("coordinateY")
+        creationDateColumn.cellValueFactory = PropertyValueFactory("creationDate")
+        enginePowerColumn.cellValueFactory = PropertyValueFactory("enginePower")
+        distanceColumn.cellValueFactory = PropertyValueFactory("distanceTravelled")
+        typeColumn.cellValueFactory = PropertyValueFactory("type")
+        fuelTypeColumn.cellValueFactory = PropertyValueFactory("fuelType")
+        userIdColumn.cellValueFactory = PropertyValueFactory("userId")
+        vehicleTableView.items = vehicleData
+
     }
 
     fun setApiClient(apiClient: ApiClient) {
@@ -64,10 +90,12 @@ class MainController {
         // Обновляем UI. Команды либо уже пришли (если login ответ их содержал и onCommandDescriptorsUpdated сработал),
         // либо ApiClient их запросил при подключении и они скоро придут.
         refreshUIState()
+        refreshVehicleTableData()
     }
 
     private fun refreshUIState() {
         // Убедимся, что apiClient инициализирован перед использованием
+
         if (!::apiClient.isInitialized) {
             println("MainController: refreshUIState - apiClient not initialized yet.")
             return
@@ -80,13 +108,23 @@ class MainController {
             if (creds != null) {
                 currentUserLabel.text = "User: ${creds.first}"
                 logoutButton.isDisable = false
+                // Если мы подключены, залогинены, и таблица данных пуста (например, после реконнекта)
+                // то пробуем загрузить данные для таблицы.
+                if (apiClient.isConnected() && vehicleData.isEmpty()) { // vehicleData - это ваш ObservableList<Vehicle>
+                    println("MainController: refreshUIState - Connected, user logged in, and table data is empty. Attempting to refresh table data.")
+                    refreshVehicleTableData() // Запрашиваем данные для таблицы
+                }
             } else {
                 currentUserLabel.text = "User: Not logged in"
                 logoutButton.isDisable = true
+                vehicleData.clear()
             }
 
             connectionStatusLabel.text = if (apiClient.isConnected()) "Connection: Connected" else "Connection: Disconnected"
-            updateCommandDisplayItself() // Обновляем кнопки команд
+            if (!apiClient.isConnected() && creds == null) { // Дополнительная проверка
+                vehicleData.clear()
+            }
+            updateCommandDisplayItself()
         }
     }
 
@@ -98,10 +136,11 @@ class MainController {
                 descriptorsFromServer.forEach { commandRegistry[it.name.lowercase()] = it }
                 println("MainController: commandRegistry updated by listener. New size: ${commandRegistry.size}")
                 updateCommandDisplayItself() // Перерисовываем кнопки с новым реестром
-                // Не вызываем refreshUIState() здесь, чтобы избежать возможной рекурсии,
-                // если refreshUIState тоже как-то влияет на запрос команд.
-                // updateCommandDisplayItself должен быть достаточен для обновления кнопок.
-                // Статус пользователя и соединения обновляются в onConnectionStatusChanged -> refreshUIState.
+                val creds = apiClient.getCurrentUserCredentials()
+                if (creds != null && apiClient.isConnected() && vehicleData.isEmpty() && commandRegistry.isNotEmpty()) {
+                    println("MainController: Commands received, user logged in, table empty. Refreshing table data.")
+                    refreshVehicleTableData()
+                }
             }
         }
 
@@ -245,13 +284,38 @@ class MainController {
             val response = apiClient.sendRequestAndWaitForResponse(request)
             Platform.runLater {
                 if (response != null) {
-                    showInfoAlert("Server Response - ${descriptor.name}", response.responseText)
+                    showInfoAlert("Server Response - ${descriptor.name}", response.responseText) // Показываем текстовый ответ
+
                     if (response.responseText.contains("Authentication failed", ignoreCase = true)) {
                         apiClient.clearCurrentUserCredentials()
-                        refreshUIState() // Обновит UI, покажет "Not logged in"
-                        mainApp.onLogout(currentStage) // Сессия невалидна, возвращаем к логину
+                        // Не вызываем refreshUIState() напрямую, onLogout должен вызвать его или метод, который вызовет
+                        mainApp.onLogout(currentStage)
+                    } else if (!response.responseText.lowercase().startsWith("error")) {
+                        // --- НАЧАЛО ВСТАВКИ для handleCommandExecution ---
+                        val commandsThatModifyData = setOf(
+                            "add", "add_if_max", "update", "remove_by_id", "clear",
+                            "remove_greater", "remove_lower", "execute_script"
+                            // Добавьте сюда все ваши команды, изменяющие коллекцию, в НИЖНЕМ РЕГИСТРЕ
+                        )
+
+                        val commandNameLower = descriptor.name.lowercase()
+
+                        if (commandsThatModifyData.contains(commandNameLower)) {
+                            println("Command ${descriptor.name} might have changed data. Refreshing table by calling 'show'.")
+                            refreshVehicleTableData() // Вызываем 'show' для обновления
+                        } else if (commandNameLower == "show") {
+                            if (response.vehicles != null) {
+                                println("Command 'show' executed. Updating table directly from response.")
+                                updateTableWithVehicles(response.vehicles)
+                            } else {
+                                println("Command 'show' executed, but no vehicle data in response. Text: ${response.responseText}")
+                                if (response.responseText.contains("Collection is empty", ignoreCase = true)) {
+                                    updateTableWithVehicles(emptyList()) // Явно очищаем, если коллекция пуста
+                                }
+                                // Иначе, возможно, ничего не делаем или показываем ошибку, если ожидались данные
+                            }
+                        }
                     }
-                    // TODO: Обновить TableView/Visualization, если команда изменяла данные
                 } else {
                     showErrorAlert("Server Error", "No response or timeout for command '${descriptor.name}'.")
                 }
@@ -267,6 +331,44 @@ class MainController {
     private fun showErrorAlert(title: String, content: String) {
         Alert(Alert.AlertType.ERROR).apply {
             this.title = title; this.headerText = null; this.contentText = content; this.showAndWait()
+        }
+    }
+    private fun refreshVehicleTableData() {
+        val currentCreds = apiClient.getCurrentUserCredentials()
+        if (currentCreds == null || !apiClient.isConnected()) {
+            println("Cannot refresh table: Not logged in or not connected.")
+            vehicleData.clear() // Очищаем таблицу, если нет данных или нет соединения/логина
+            return
+        }
+
+        println("MainController: Requesting vehicle data from server (using 'show' command)...")
+        val showRequest = Request(
+            body = listOf("show"), // Имя вашей команды для получения всех объектов
+            username = currentCreds.first,
+            password = currentCreds.second
+        )
+
+        Thread {
+            val response = apiClient.sendRequestAndWaitForResponse(showRequest)
+            Platform.runLater {
+                if (response?.vehicles != null) {
+                    println("MainController: Received ${response.vehicles.size} vehicles from server.")
+                    updateTableWithVehicles(response.vehicles)
+                } else {
+                    showErrorAlert("Table Update Error", "Failed to retrieve vehicle data from server. Response: ${response?.responseText}")
+                    // Можно очистить таблицу или оставить старые данные, в зависимости от предпочтений
+                    // vehicleData.clear()
+                }
+            }
+        }.start()
+    }
+    private fun updateTableWithVehicles(vehicles: List<Vehicle>?) {
+        vehicleData.clear()
+        if (vehicles != null) {
+            vehicleData.addAll(vehicles)
+            println("MainController: TableView updated with ${vehicles.size} items.")
+        } else {
+            println("MainController: No vehicles to update table with.")
         }
     }
 }
