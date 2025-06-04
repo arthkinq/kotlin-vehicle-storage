@@ -1,19 +1,27 @@
 package gui
 
 import app.MainApp
-import core.ApiClient
 import common.Request
+import core.ApiClient
 import javafx.application.Platform
 import javafx.fxml.FXML
-import javafx.scene.control.Button
-import javafx.scene.control.PasswordField
-import javafx.scene.control.TextField
+import javafx.scene.control.*
 import javafx.scene.text.Text
 import javafx.stage.Stage
+import util.LocaleManager // Импортируем наш LocaleManager
+import java.util.Locale   // Импортируем Locale
 
 class LoginController {
 
-    @FXML lateinit var statusText: Text
+    // Добавляем @FXML для новых элементов
+    @FXML private lateinit var appTitleText: Text
+    @FXML private lateinit var headerText: Text
+    @FXML private lateinit var usernameLabel: Label
+    @FXML private lateinit var passwordLabel: Label
+    @FXML private lateinit var languageComboBox: ComboBox<Locale>
+
+    // Существующие @FXML поля
+    @FXML lateinit var statusText: Text // Оставляем public, если нужно извне менять, но лучше private
     @FXML private lateinit var usernameField: TextField
     @FXML private lateinit var passwordField: PasswordField
     @FXML private lateinit var loginButton: Button
@@ -25,41 +33,95 @@ class LoginController {
 
     private var loginInProgress = false
 
-    // initialize() вызывается после инъекции @FXML полей, но до вызова сеттеров из MainApp
+    @FXML // Указываем, что это метод, вызываемый FXML (хотя для initialize это необязательно, если он public)
     fun initialize() {
-        // Начальная установка состояния кнопок (обычно активны)
         setButtonsDisabled(false)
-        // Очищаем statusText при изменении полей ввода, если не идет обработка
-        usernameField.textProperty().addListener { _, _, _ -> if (!loginInProgress) statusText.text = "" }
-        passwordField.textProperty().addListener { _, _, _ -> if (!loginInProgress) statusText.text = "" }
+        usernameField.textProperty().addListener { _, _, _ -> if (!loginInProgress) clearStatusText() }
+        passwordField.textProperty().addListener { _, _, _ -> if (!loginInProgress) clearStatusText() }
+
+        // Инициализация ComboBox для выбора языка
+        languageComboBox.items.addAll(LocaleManager.supportedLocales)
+        languageComboBox.value = LocaleManager.currentLocale
+        languageComboBox.setCellFactory { LanguageListCell() } // LanguageListCell должен быть доступен
+        languageComboBox.buttonCell = LanguageListCell()
+
+        languageComboBox.valueProperty().addListener { _, _, newLocale ->
+            if (newLocale != null && newLocale != LocaleManager.currentLocale) {
+                LocaleManager.currentLocale = newLocale
+                // updateTexts() вызовется через слушателя ниже
+            }
+        }
+
+        // Слушатель для обновления UI при смене локали из LocaleManager
+        LocaleManager.currentLocaleProperty.addListener { _, _, _ -> updateTexts() }
+        updateTexts() // Первоначальная установка всех текстов
+    }
+
+    private fun updateTexts() {
+        // Заголовок окна Stage
+        if (::currentStage.isInitialized) { // Используем currentStage, так как loginStage убрал
+            currentStage.titleProperty().unbind() // Отвязываем на всякий случай
+            currentStage.title = LocaleManager.getString("login.appTitle")
+        }
+
+        appTitleText.textProperty().bind(LocaleManager.getObservableString("login.appTitle"))
+        headerText.textProperty().bind(LocaleManager.getObservableString("login.header"))
+        usernameLabel.textProperty().bind(LocaleManager.getObservableString("login.label.username"))
+        usernameField.promptTextProperty().bind(LocaleManager.getObservableString("login.prompt.username"))
+        passwordLabel.textProperty().bind(LocaleManager.getObservableString("login.label.password"))
+        passwordField.promptTextProperty().bind(LocaleManager.getObservableString("login.prompt.password"))
+        loginButton.textProperty().bind(LocaleManager.getObservableString("login.button.login"))
+        registerButton.textProperty().bind(LocaleManager.getObservableString("login.button.register"))
+
+        // Обновляем statusText, если он не содержит сообщения об ошибке/процессе
+        // Это важно, чтобы не затереть актуальное сообщение о статусе операции
+        if (statusText.text.isEmpty() || statusText.text == LocaleManager.getString("login.status.placeholder") ||
+            statusText.text.startsWith("Network:")) { // Не затираем сообщения о сети
+            clearStatusText() // Устанавливает плейсхолдер или пустоту
+        }
+    }
+
+    private fun clearStatusText() {
+        statusText.text = LocaleManager.getString("login.status.placeholder")
     }
 
     fun setApiClient(apiClient: ApiClient) {
         this.apiClient = apiClient
-        // Подписываемся на статус соединения
         apiClient.onConnectionStatusChanged = { isConnected, message ->
             Platform.runLater {
-                if (!loginInProgress) { // Обновляем статус, только если не идет активная операция
-                    val actualMessage = message ?: if (isConnected) "Network: Connected" else "Network: Disconnected. Click button to try."
-                    statusText.text = actualMessage
-                    // Кнопки должны быть активны, если не идет операция, чтобы пользователь мог попытаться
+                if (!loginInProgress) {
+                    val actualMessageKey: String
+                    val messageParam: String?
+                    if (message != null) {
+                        // Если есть кастомное сообщение, его не локализуем, просто показываем
+                        statusText.text = message
+                        setButtonsDisabled(false) // Предполагаем, что кнопки должны быть активны
+                        return@runLater
+                    } else {
+                        actualMessageKey = if (isConnected) "network.status.connected" else "network.status.disconnected"
+                        messageParam = null
+                    }
+                    statusText.text = if (messageParam != null) LocaleManager.getString(actualMessageKey, messageParam)
+                    else LocaleManager.getString(actualMessageKey)
                     setButtonsDisabled(false)
                 }
             }
         }
         // Обновляем UI при первоначальной установке apiClient
         Platform.runLater {
-            if (this::apiClient.isInitialized) { // Убедимся, что apiClient уже установлен
+            if (this::apiClient.isInitialized) {
+                val statusKey: String
                 if (apiClient.isConnectionPending()) {
-                    statusText.text = "Network: Attempting initial connection..."
+                    statusKey = "network.status.pending"
                     setButtonsDisabled(true)
                 } else if (apiClient.isConnected()) {
-                    statusText.text = "Network: Connected"
+                    statusKey = "network.status.connected"
                     setButtonsDisabled(false)
                 } else {
-                    statusText.text = "Network: Disconnected. Ready to connect."
+                    statusKey = "network.status.disconnectedReady"
                     setButtonsDisabled(false)
                 }
+                statusText.text = LocaleManager.getString(statusKey)
             }
         }
     }
@@ -68,8 +130,18 @@ class LoginController {
         this.mainApp = mainApp
     }
 
-    fun  setCurrentStage(stage: Stage) {
+    // Переименовал в setCurrentStage для единообразия с MainController
+    fun setCurrentStage(stage: Stage) {
         this.currentStage = stage
+        // Установка заголовка окна при передаче Stage
+        if (::currentStage.isInitialized) {
+            currentStage.titleProperty().unbind()
+            currentStage.title = LocaleManager.getString("login.appTitle")
+            // Добавляем слушателя на смену локали для заголовка окна, если он не привязан через property
+            LocaleManager.currentLocaleProperty.addListener { _, _, _ ->
+                currentStage.title = LocaleManager.getString("login.appTitle")
+            }
+        }
     }
 
     @FXML
@@ -89,27 +161,28 @@ class LoginController {
         val password = passwordField.text
 
         if (username.isBlank() || password.isBlank()) {
-            statusText.text = "Username and password cannot be empty."
+            statusText.text = LocaleManager.getString("login.error.emptyFields")
             return
         }
 
         loginInProgress = true
-        statusText.text = "Processing $commandName..."
+        statusText.text = LocaleManager.getString("login.status.processing", commandName)
         setButtonsDisabled(true)
 
         Thread {
             var connectionOK = apiClient.isConnected()
             if (!connectionOK) {
-                Platform.runLater { statusText.text = "Attempting to connect to server..." }
+                Platform.runLater { statusText.text = LocaleManager.getString("login.status.connecting") }
                 connectionOK = apiClient.connectIfNeeded()
             }
 
             if (!connectionOK) {
                 Platform.runLater {
-                    // Сообщение об ошибке уже должно было быть установлено ApiClient через onConnectionStatusChanged
-                    if (statusText.text.startsWith("Processing") || statusText.text.startsWith("Attempting to connect")) {
-                        statusText.text = "Failed to connect to server. Please try again."
+                    if (statusText.text.startsWith(LocaleManager.getString("login.status.processing", "").substringBefore("{0}")) || // Проверяем начало "Processing"
+                        statusText.text == LocaleManager.getString("login.status.connecting")) {
+                        statusText.text = LocaleManager.getString("login.error.connectFailed")
                     }
+                    // Сообщение об ошибке также может прийти от onConnectionStatusChanged
                     setButtonsDisabled(false)
                     loginInProgress = false
                 }
@@ -118,7 +191,7 @@ class LoginController {
 
             val request = Request(
                 body = listOf(commandName, username, password),
-                username = username,
+                username = username, // username и password в Request дублируют те, что в body, но это ОК
                 password = password
             )
 
@@ -126,28 +199,35 @@ class LoginController {
 
             Platform.runLater {
                 if (response != null) {
-                    statusText.text = response.responseText
-                    if (!response.responseText.lowercase().contains("error:")) { // Проверяем на "error:" для большей точности
+                    // statusText.text = response.responseText // Не локализовано!
+                    // Лучше, чтобы сервер возвращал ключи или коды.
+                    // Пока просто отображаем, но помечаем как TODO для локализации ответа сервера.
+                    // Если response.responseText это ключ, то:
+                    // statusText.text = LocaleManager.getString(response.responseText)
+                    // Иначе:
+                    statusText.text = response.responseText // TODO: Localize server responses if possible
+
+                    if (!response.responseText.lowercase().contains("error:")) {
                         if (commandName == "login") {
                             apiClient.setCurrentUserCredentials(username, password)
-                            // response.commandDescriptors теперь не передаем, MainController получит их сам
-                            mainApp.onLoginSuccess(currentStage, username)
-                            // loginInProgress не сбрасываем, так как окно должно закрыться
+                            mainApp.onLoginSuccess(currentStage, username) // Передаем username
+                            // loginInProgress не сбрасываем
                         } else if (commandName == "register") {
-                            statusText.text = "${response.responseText} You can now login."
+                            // Формируем сообщение об успехе регистрации
+                            statusText.text = LocaleManager.getString("login.success.register", response.responseText)
                             setButtonsDisabled(false)
                             loginInProgress = false
                         }
                     } else { // Ответ сервера содержит "error:"
-                        // statusText.text = response.responseText // Уже установлено
-                        if (commandName == "login") { // Сбрасываем креды только если это была неудачная попытка логина
+                        // statusText.text уже установлен выше (ответ сервера)
+                        if (commandName == "login") {
                             apiClient.clearCurrentUserCredentials()
                         }
                         setButtonsDisabled(false)
                         loginInProgress = false
                     }
                 } else { // response == null
-                    statusText.text = "No response from server or request timed out for $commandName."
+                    statusText.text = LocaleManager.getString("login.error.noResponse", commandName)
                     setButtonsDisabled(false)
                     loginInProgress = false
                 }
