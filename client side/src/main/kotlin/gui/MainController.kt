@@ -17,7 +17,11 @@ import javafx.stage.Stage
 import model.FuelType
 import model.Vehicle // Для handleCommandExecution
 import model.VehicleType
-
+import javafx.scene.control.Dialog
+import javafx.scene.control.ButtonBar.ButtonData // Убедитесь, что этот импорт есть
+import javafx.scene.layout.GridPane
+import javafx.scene.control.TextField
+import javafx.geometry.Insets
 class MainController {
 
 
@@ -256,24 +260,44 @@ class MainController {
         }
 
         // Логика сбора аргументов и Vehicle (TODO: Заменить на GUI диалоги)
-        val argsList = mutableListOf<String>()
-        var vehicleForRequest: Vehicle? = null
-        var proceedWithExecution = true
+        var collectedArgs: List<String>? = null // Будет содержать введенные аргументы или null
 
-        if (descriptor.arguments.any { it.type != common.ArgumentType.NO_ARGS && !it.isOptional }) {
-            showInfoAlert("Input Required", "Command '${descriptor.name}' requires arguments. (GUI for this is a TODO)")
-            println("TODO: Implement GUI for argument input for command ${descriptor.name}")
-            return // Заглушка: не выполняем команду, если нужны аргументы и нет GUI для их ввода
+        // Проверяем, нужно ли запрашивать аргументы
+        val argumentsToAskFor = descriptor.arguments.filter {
+            it.type != common.ArgumentType.NO_ARGS && !it.isOptional // Только обязательные не NO_ARGS аргументы
+        }
+        // Можно добавить логику для опциональных, если очень нужно, но пока упростим
+
+        if (argumentsToAskFor.isNotEmpty()) {
+            collectedArgs = showArgumentInputDialog(descriptor.name, argumentsToAskFor)
+            if (collectedArgs == null) { // Пользователь отменил ввод или произошла ошибка валидации
+                showInfoAlert("Cancelled", "Command '${descriptor.name}' execution cancelled.")
+                return
+            }
+        } else {
+            // Либо нет аргументов, либо все они NO_ARGS, либо все опциональные (и мы их не спрашиваем)
+            collectedArgs = emptyList() // Команда не требует явного ввода аргументов
+            println("Command '${descriptor.name}' does not require mandatory argument input.")
         }
 
+        var vehicleForRequest: Vehicle? = null
         if (descriptor.requiresVehicleObject) {
-            showInfoAlert("Vehicle Input", "Command '${descriptor.name}' requires Vehicle data. (GUI for this is a TODO)")
-            println("TODO: Implement GUI for Vehicle input for command ${descriptor.name}")
-            return // Заглушка: не выполняем команду, если нужен Vehicle и нет GUI для его ввода
+            // TODO: Это следующий шаг - показать VehicleInputDialog
+            // Пока заглушка:
+            val vehicleDialog = VehicleInputDialog(currentStage, null) // null для нового
+            val returnedVehicle = vehicleDialog.showAndWaitWithResult()
+            if (returnedVehicle != null) {
+                vehicleForRequest = returnedVehicle
+            } else {
+                showInfoAlert("Cancelled", "Vehicle input cancelled for command '${descriptor.name}'.")
+                return
+            }
+            // showErrorAlert("Vehicle Input", "Command '${descriptor.name}' requires Vehicle data. GUI for this is a TODO.")
+            // return
         }
 
         val request = Request(
-            body = listOf(descriptor.name) + argsList, // Используем "чистое" имя из дескриптора
+            body = listOf(descriptor.name) + (collectedArgs ?: emptyList()), // Добавляем собранные аргументы
             vehicle = vehicleForRequest,
             username = currentCreds.first,
             password = currentCreds.second
@@ -322,11 +346,109 @@ class MainController {
             }
         }.start()
     }
+    private fun showDialogValidationError(message: String, ownerDialog: Dialog<*>) {
+        Alert(Alert.AlertType.ERROR).apply {
+            initOwner(ownerDialog.dialogPane.scene.window) // Привязываем Alert к диалогу
+            title = "Validation Error"
+            headerText = "Invalid input"
+            contentText = message
+        }.showAndWait()
+    }
 
     private fun showInfoAlert(title: String, content: String) {
         Alert(Alert.AlertType.INFORMATION).apply {
             this.title = title; this.headerText = null; this.contentText = content; this.showAndWait()
         }
+    }
+    private fun showArgumentInputDialog(commandName: String, argumentsToAskFor: List<common.CommandArgument>): List<String>? {
+        // Если список аргументов для запроса пуст (хотя мы уже проверили это перед вызовом),
+        // на всякий случай возвращаем пустой список.
+        if (argumentsToAskFor.isEmpty()) {
+            return emptyList()
+        }
+
+        val dialog = Dialog<List<String>>()
+        dialog.title = "Input for $commandName"
+        dialog.headerText = "Please enter arguments for command: $commandName"
+
+        val okButtonType = ButtonType("OK", ButtonData.OK_DONE)
+        dialog.dialogPane.buttonTypes.addAll(okButtonType, ButtonType.CANCEL)
+
+        val grid = GridPane().apply {
+            hgap = 10.0
+            vgap = 10.0
+            padding = Insets(20.0, 20.0, 10.0, 20.0) // Настройте отступы
+        }
+
+        val inputFields = mutableListOf<TextField>()
+
+        argumentsToAskFor.forEachIndexed { index, argDesc ->
+            // Метка: Имя аргумента (тип)
+            grid.add(Label("${argDesc.name} (${argDesc.type.name.lowercase()}):"), 0, index)
+            val textField = TextField().apply {
+                promptText = argDesc.description ?: argDesc.name
+            }
+            grid.add(textField, 1, index)
+            inputFields.add(textField)
+        }
+
+        dialog.dialogPane.content = grid
+
+        // Фокус на первое поле ввода
+        Platform.runLater { inputFields.firstOrNull()?.requestFocus() }
+
+        dialog.setResultConverter { dialogButton ->
+            if (dialogButton == okButtonType) {
+                val enteredValues = mutableListOf<String>()
+                for ((i, textField) in inputFields.withIndex()) {
+                    val argDesc = argumentsToAskFor[i] // Соответствующий дескриптор аргумента
+                    val value = textField.text.trim()
+
+                    // 1. Проверка на пустоту для обязательных (все в argumentsToAskFor - обязательные)
+                    if (value.isEmpty()) {
+                        // Эта проверка не нужна, так как argumentsToAskFor уже содержит только !isOptional.
+                        // if (!argDesc.isOptional) { ... }
+                        showDialogValidationError("Argument '${argDesc.name}' is required and cannot be empty.", dialog)
+                        return@setResultConverter null // Остаемся в диалоге
+                    }
+
+                    // 2. Валидация типа
+                    when (argDesc.type) {
+                        common.ArgumentType.INTEGER -> {
+                            try {
+                                value.toInt() // Проверяем, что можем преобразовать
+                            } catch (e: NumberFormatException) {
+                                showDialogValidationError(
+                                    "Argument '${argDesc.name}' must be a valid integer. You entered: '$value'",
+                                    dialog
+                                )
+                                return@setResultConverter null
+                            }
+                        }
+                        common.ArgumentType.DOUBLE -> {
+                            try {
+                                value.toDouble()
+                            } catch (e: NumberFormatException) {
+                                showDialogValidationError(
+                                    "Argument '${argDesc.name}' must be a valid number (double). You entered: '$value'",
+                                    dialog
+                                )
+                                return@setResultConverter null
+                            }
+                        }
+                        common.ArgumentType.STRING -> {
+                            // Для строки особой валидации типа нет, только на пустоту (уже проверено)
+                        }
+                        common.ArgumentType.NO_ARGS -> { /* Сюда не должны попадать, т.к. отфильтровали */ }
+                    }
+                    enteredValues.add(value) // Добавляем валидное значение (как строку)
+                }
+                return@setResultConverter enteredValues
+            }
+            null // Для кнопки Cancel или закрытия окна
+        }
+
+        return dialog.showAndWait().orElse(null)
     }
     private fun showErrorAlert(title: String, content: String) {
         Alert(Alert.AlertType.ERROR).apply {
