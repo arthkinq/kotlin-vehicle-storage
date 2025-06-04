@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<?import javafx.scene.canvas.Canvas?>
+<VBox maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="708.0" minWidth="1200.0"
+      prefHeight="708.0" prefWidth="1200.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="gui.MainController">
+
+    <AnchorPane minWidth="1200.0" prefHeight="975.0" prefWidth="1036.0" VBox.vgrow="ALWAYS">
+        <HBox alignment="BASELINE_CENTER" prefHeight="100.0" prefWidth="1200.0" spacing="100.0">
+            <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Vehicle manager" textAlignment="CENTER">
+                <font>
+                    <Font name="Tahoma Bold" size="32.0"/>
+                </font>
+            </Text>
+            <Label fx:id="connectionStatusLabel" text="Статус соединения">
+                <font>
+                    <Font name="Tahoma" size="18.0"/>
+                </font>
+            </Label>
+            <Label fx:id="currentUserLabel" text="User: Not logged in">
+                <font>
+                    <Font name="Tahoma" size="18.0"/>
+                </font>
+            </Label>
+            <Button fx:id="logoutButton" onAction="#handleLogout" text="Logout" HBox.hgrow="NEVER"/>
+        </HBox>
+        <TabPane layoutX="14.0" layoutY="54.0" prefHeight="990.0" prefWidth="1171.0" tabClosingPolicy="UNAVAILABLE"
+                 AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0"
+                 AnchorPane.topAnchor="54.0">
+            <Tab fx:id="mapTab" text="Расположение объектов"> <!-- Добавляем fx:id для вкладки -->
+                <ScrollPane pannable="true" fitToHeight="true"
+                            fitToWidth="true"> <!-- fitToHeight и fitToWidth для ScrollPane -->
+                    <!-- Pane будет содержать Canvas и, возможно, фоновое изображение -->
+                    <Pane fx:id="mapPane"> <!-- Этот Pane будет иметь фон карты -->
+                        <style>
+                            -fx-background-image: url("assets/map.jpg");
+                            -fx-background-size: 806 922; /* Явно задаем размер фона, если нужно точное соответствие */
+                            -fx-background-size: stretch;
+                            -fx-background-position: center center;
+                            -fx-background-repeat: no-repeat;
+                            <!--                            -fx-background-color: rgb(100,0,0);-->
+                        </style>
+                        <Canvas fx:id="mapCanvas"/> <!-- Размеры будут привязаны к mapPane в коде -->
+                    </Pane>
+                </ScrollPane>
+            </Tab>
+
+            <Tab text="Таблица">
+                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                    <TableView  fx:id="vehicleTableView" layoutX="226.0" layoutY="7.0" prefHeight="597.0" prefWidth="941.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="230.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
+                        <columns>
+                            <TableColumn fx:id="idColumn" prefWidth="37.33332061767578" text="id" />
+                            <TableColumn fx:id="nameColumn" prefWidth="88.66664123535156" text="name" />
+                            <TableColumn fx:id="coordXColumn" prefWidth="91.33334350585938" text="coordinates X" />
+                            <TableColumn fx:id="coordYColumn" prefWidth="86.0" text="coordinates Y" />
+                            <TableColumn fx:id="creationDateColumn" prefWidth="120.0" text="creation date" /> <!-- Увеличил ширину для даты -->
+                            <TableColumn fx:id="enginePowerColumn" prefWidth="88.66668701171875" text="engine power" />
+                            <TableColumn fx:id="distanceColumn" prefWidth="112.66668701171875" text="distance travelled" /> <!-- Убрал лишний пробел -->
+                            <TableColumn fx:id="typeColumn" prefWidth="80.0" text="type" /> <!-- Можно настроить ширину -->
+                            <TableColumn fx:id="fuelTypeColumn" prefWidth="117.99993896484375" text="fuel type" />
+                            <TableColumn fx:id="userIdColumn" prefWidth="83.3333740234375" text="user id" />
+                        </columns>
+                    </TableView>
+                    <Text layoutX="14.0" layoutY="39.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Команды:"
+                          textAlignment="CENTER">
+                        <font>
+                            <Font name="Tahoma" size="32.0"/>
+                        </font>
+                    </Text>
+                    <!-- УДАЛИТЕ ВСЕ СТАРЫЕ КНОПКИ ОТСЮДА -->
+
+                    <!-- ДОБАВЬТЕ ЭТОТ БЛОК ДЛЯ ДИНАМИЧЕСКИХ КНОПОК -->
+                    <ScrollPane fitToWidth="true" hbarPolicy="NEVER" layoutY="52.0" prefHeight="553.0"
+                                prefViewportWidth="215.0" prefWidth="219.0" AnchorPane.bottomAnchor="10.0"
+                                AnchorPane.leftAnchor="4.0" AnchorPane.topAnchor="52.0">
+                        <VBox fx:id="commandsVBox" spacing="5.0" style="-fx-padding: 5;"/>
+                    </ScrollPane>
+                    <!-- КОНЕЦ БЛОКА ДЛЯ ДИНАМИЧЕСКИХ КНОПОК -->
+
+                </AnchorPane>
+            </Tab>
+
+        </TabPane>
+    </AnchorPane>
+</VBox>

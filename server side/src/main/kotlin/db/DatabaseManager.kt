@@ -20,12 +20,6 @@ object DatabaseManager {
     private const val DB_PORT = 5432
 
     private val logger = Logger.getLogger(DatabaseManager::class.java.name)
-    /*private const val DB_HOST_LOCAL = "localhost"
-    private const val DB_NAME_LOCAL = "lab_dev"
-    private const val DB_USER_LOCAL = "postgres"
-    private const val DB_PASSWORD_LOCAL = "test"
-    private const val DB_PORT_LOCAL = 5432
-    private const val DB_URL_LOCAL = "jdbc:postgresql://$DB_HOST_LOCAL:$DB_PORT_LOCAL/$DB_NAME_LOCAL"*/
     private const val DB_URL = "jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
     init {
         try {

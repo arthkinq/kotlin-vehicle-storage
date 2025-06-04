@@ -4,6 +4,7 @@ import common.CommandDescriptor
 import common.Request
 import common.Response
 import common.SerializationUtils
+import javafx.application.Platform
 import java.io.IOException
 import java.net.ConnectException
 import java.net.InetSocketAddress
@@ -31,6 +32,13 @@ class ApiClient(
         private const val CONNECT_ATTEMPT_TIMEOUT_MS = 5000L
     }
 
+
+
+
+    private var currentSessionUsername: String? = null
+    private var currentSessionPassword: String? = null
+    private val sessionLock = Any()
+
     @Volatile
     private var running = true
 
@@ -40,18 +48,21 @@ class ApiClient(
     private val pendingRequests = ArrayDeque<ByteBuffer>()
     private var currentResponseState: SerializationUtils.ObjectReaderState? = null
     private var lastReceivedResponse: Response? = null
-    private val responseLock = Object()
+    private val responseLock = Object() // Для sendRequestAndWaitForResponse И для connectIfNeeded
     private var responseAvailable = AtomicBoolean(false)
 
     private lateinit var nioThread: Thread
     private val logger = Logger.getLogger(ApiClient::class.java.name)
 
+
+    private var lastKnownCommandDescriptors: List<CommandDescriptor>? = null // Кэш
+    private val descriptorsLock = Any() // Лок для кэша
+
     var onCommandDescriptorsUpdated: ((List<CommandDescriptor>) -> Unit)? = null
-    var onConnectionStatusChanged: ((Boolean, String?) -> Unit)? =
-        null
+    var onConnectionStatusChanged: ((Boolean, String?) -> Unit)? = null
 
     init {
-        logger.level = Level.WARNING
+        logger.level = Level.INFO
         try {
             selector = Selector.open()
             nioThread = Thread { clientSelectorLoop() }.apply {
@@ -71,15 +82,45 @@ class ApiClient(
     }
 
     private fun updateConnectionStatus(isConnected: Boolean, message: String? = null) {
-        val oldStatus = connected.getAndSet(isConnected)
+        val oldStatus = connected.get()
+        connected.set(isConnected)
         val changed = oldStatus != isConnected
+
         if (changed || message != null) {
-            onConnectionStatusChanged?.invoke(isConnected, message)
+            Platform.runLater {
+                onConnectionStatusChanged?.invoke(isConnected, message)
+            }
         }
-        if (changed && !isConnected && connectionPending.get()) {
+
+        if (changed || !connectionPending.get()) { // Если статус изменился ИЛИ pending сброшен
             synchronized(responseLock) { responseLock.notifyAll() }
-        } else if (changed && isConnected) {
-            synchronized(responseLock) { responseLock.notifyAll() }
+        }
+    }
+
+    fun setCurrentUserCredentials(username: String?, password: String?) {
+        synchronized(sessionLock) {
+            this.currentSessionUsername = username
+            this.currentSessionPassword = password
+            logger.info(if (username == null) "ApiClient: User credentials cleared." else "ApiClient: User credentials set for '$username'.")
+        }
+    }
+
+    fun getCurrentUserCredentials(): Pair<String, String>? {
+        synchronized(sessionLock) {
+            val u = currentSessionUsername
+            val p = currentSessionPassword
+            return if (u != null && p != null) Pair(u, p) else null
+        }
+    }
+
+    fun clearCurrentUserCredentials() {
+        synchronized(sessionLock) { /* ... */ }
+        synchronized(descriptorsLock) { // Очищаем команды при логауте
+            lastKnownCommandDescriptors = null
+        }
+        // Уведомляем, что команды "сброшены" (стали пустыми)
+        Platform.runLater {
+            onCommandDescriptorsUpdated?.invoke(emptyList())
         }
     }
 
@@ -94,31 +135,33 @@ class ApiClient(
         }
 
         if (connectionPending.get()) {
-            ioManager.outputLine("Connection attempt already in progress. Waiting for result...")
+            logger.info("connectIfNeeded: Connection attempt already in progress. Waiting...")
             val waitStartTime = System.currentTimeMillis()
             synchronized(responseLock) {
                 while (connectionPending.get() && !connected.get() && (System.currentTimeMillis() - waitStartTime < timeoutMs)) {
                     try {
                         responseLock.wait(200)
                     } catch (e: InterruptedException) {
-                        Thread.currentThread().interrupt()
-                        return false
+                        Thread.currentThread().interrupt(); return false
                     }
                 }
             }
+            logger.info("connectIfNeeded: Wait for pending connection finished. Connected: ${connected.get()}")
             return connected.get()
         }
-
 
         connectionPending.set(true)
         updateConnectionStatus(false, "Attempting to connect to $serverHost:$serverPort...")
         initiateConnectionInternal()
 
         val startTime = System.currentTimeMillis()
+        var connectionEstablishedDuringWait = false
         synchronized(responseLock) {
             while (connectionPending.get() && !connected.get() && (System.currentTimeMillis() - startTime < timeoutMs)) {
                 try {
-                    responseLock.wait(timeoutMs - (System.currentTimeMillis() - startTime).coerceAtLeast(0L) + 50)
+                    val timeLeft = timeoutMs - (System.currentTimeMillis() - startTime)
+                    if (timeLeft <= 0) break
+                    responseLock.wait(timeLeft.coerceAtLeast(50L)) // Ждем оставшееся время
                 } catch (e: InterruptedException) {
                     Thread.currentThread().interrupt()
                     updateConnectionStatus(false, "Connection attempt interrupted.")
@@ -126,41 +169,46 @@ class ApiClient(
                     return false
                 }
             }
+            connectionEstablishedDuringWait = connected.get()
         }
-        val success = connected.get()
-        if (!success && connectionPending.get()) {
+
+
+        if (!connectionEstablishedDuringWait && connectionPending.get()) {
             connectionPending.set(false)
             updateConnectionStatus(false, "Failed to connect to server within timeout (connectIfNeeded).")
         }
-        return success
+        logger.info("connectIfNeeded finished. Connected: $connectionEstablishedDuringWait")
+        return connectionEstablishedDuringWait
     }
 
     private fun initiateConnectionInternal() {
+        // Эта функция вызывается из connectIfNeeded (который установил connectionPending = true)
+        // или из clientSelectorLoop (для первоначальной попытки, если нужно)
         try {
             if (channel == null || channel?.isOpen == false) {
                 channel?.closeQuietly()
                 channel = SocketChannel.open()
                 channel!!.configureBlocking(false)
-                logger.log(Level.INFO, "ApiClient: New SocketChannel created.")
+                logger.info("ApiClient: New SocketChannel created.")
             }
 
             val currentSelector = selector
             if (currentSelector == null || !currentSelector.isOpen) {
-                logger.log(Level.WARNING, "ApiClient: Selector not open. Connection attempt aborted.")
-                connectionPending.set(false)
+                logger.warning("ApiClient: Selector not open during internal connection initiation. Aborting.")
+                connectionPending.set(false) // Попытка провалилась
                 updateConnectionStatus(false, "Internal error: Selector not available.")
+                synchronized(responseLock) { responseLock.notifyAll() } // Разбудить connectIfNeeded
                 return
             }
-            logger.log(Level.INFO, "ApiClient: Initiating connection (internal) to $serverHost:$serverPort.")
-
+            logger.info("ApiClient: Initiating connection (internal) to $serverHost:$serverPort.")
             val connectedImmediately = channel!!.connect(InetSocketAddress(serverHost, serverPort))
 
             if (connectedImmediately) {
-                logger.log(Level.INFO, "ApiClient: Connected immediately (internal).")
-                completeConnectionSetup(null) // Это сбросит connectionPending и установит connected
+                logger.info("ApiClient: Connected immediately (internal).")
+                completeConnectionSetup(null) // Это вызовет updateConnectionStatus, сбросит pending, разбудит lock
             } else {
-                logger.log(Level.INFO, "ApiClient: Connection pending (internal).")
-                channel!!.register(currentSelector, SelectionKey.OP_CONNECT)
+                logger.info("ApiClient: Connection pending (internal).")
+                channel!!.register(currentSelector, SelectionKey.OP_CONNECT) // nioThread обработает OP_CONNECT
             }
             currentSelector.wakeup()
         } catch (e: Exception) {
@@ -168,84 +216,24 @@ class ApiClient(
             logger.log(Level.WARNING, "ApiClient: $errorMsg", e)
             updateConnectionStatus(false, errorMsg)
             connectionPending.set(false)
-            channel?.closeQuietly()
-            channel = null
+            channel?.closeQuietly(); channel = null
             synchronized(responseLock) { responseLock.notifyAll() }
         }
     }
 
-//    private fun initiateConnection() {
-//        if (!running || connected.get() || connectionPending.get()) {
-//            return
-//        }
-//
-//        try {
-//            if (channel == null || channel?.isOpen == false) {
-//                channel?.closeQuietly()
-//                channel = SocketChannel.open()
-//                channel!!.configureBlocking(false)
-//                logger.log(Level.INFO, "ApiClient: New SocketChannel created for connection attempt.")
-//            }
-//
-//            val currentSelector = selector
-//            if (currentSelector == null || !currentSelector.isOpen) {
-//                logger.log(
-//                    Level.WARNING,
-//                    "ApiClient: Selector not open during initiateConnection. Will be handled by selector loop."
-//                )
-//                connectionPending.set(false)
-//                return
-//            }
-//
-//            connectionPending.set(true)
-//            updateConnectionStatus(false, "Attempting to connect to $serverHost:$serverPort...")
-//            logger.log(Level.INFO, "ApiClient: Initiating connection to $serverHost:$serverPort.")
-//
-//            val connectedImmediately = channel!!.connect(InetSocketAddress(serverHost, serverPort))
-//
-//            if (connectedImmediately) {
-//                logger.log(Level.INFO, "ApiClient: Connected immediately.")
-//                completeConnectionSetup(null)
-//            } else {
-//                logger.log(Level.INFO, "ApiClient: Connection pending.")
-//                channel!!.register(currentSelector, SelectionKey.OP_CONNECT)
-//            }
-//            currentSelector.wakeup()
-//        } catch (e: ConnectException) {
-//            connectionPending.set(false)
-//            val errorMsg = "Connection refused to $serverHost:$serverPort. Will retry."
-//            logger.log(Level.WARNING, "$errorMsg Error: ${e.message}")
-//            updateConnectionStatus(false, errorMsg)
-//            channel?.closeQuietly()
-//            channel = null
-//        } catch (e: ClosedChannelException) {
-//            connectionPending.set(false)
-//            val errorMsg = "Channel closed during connection attempt. Will retry."
-//            logger.log(Level.WARNING, "$errorMsg Error: ${e.message}")
-//            updateConnectionStatus(false, errorMsg)
-//            channel = null
-//        } catch (e: Exception) {
-//            connectionPending.set(false)
-//            val errorMsg = "Error initiating connection. Will retry."
-//            logger.log(Level.WARNING, "$errorMsg Error: ${e.message}", e)
-//            updateConnectionStatus(false, errorMsg)
-//            channel?.closeQuietly()
-//            channel = null
-//        }
-//    }
-
     private fun SocketChannel.closeQuietly() {
         try {
             if (isOpen) this.close()
-        } catch (e: IOException) {
+        } catch (_: IOException) {
         }
     }
 
     private fun completeConnectionSetup(key: SelectionKey?) {
         currentResponseState = SerializationUtils.ObjectReaderState()
+        // updateConnectionStatus(true, ...) вызывается первым, чтобы connected.get() был актуален для requestCommand...
         updateConnectionStatus(true, "Successfully connected to server.")
-        connectionPending.set(false)
-        logger.log(Level.INFO, "ApiClient: Connection to server complete.")
+        connectionPending.set(false) // Явно сбрасываем здесь
+        logger.info("ApiClient: Connection to server complete.")
         synchronized(responseLock) { responseLock.notifyAll() }
 
         requestCommandDescriptorsUpdate()
@@ -355,12 +343,6 @@ class ApiClient(
                     Thread.sleep(SELECT_TIMEOUT_MS)
                     continue
                 }
-//                if (!connected.get() && !connectionPending.get()) {
-//                    if (System.currentTimeMillis() - lastReconnectAttemptTime > RECONNECT_DELAY_MS) {
-//                        initiateConnection()
-//                        lastReconnectAttemptTime = System.currentTimeMillis()
-//                    }
-//                }
 
                 val readyCount = selectorToUse.select(SELECT_TIMEOUT_MS)
 
@@ -415,21 +397,22 @@ class ApiClient(
         val socketChannel = key.channel() as SocketChannel
         try {
             if (socketChannel.finishConnect()) {
-                logger.log(Level.INFO, "ApiClient: Successfully connected via finishConnect().")
-                completeConnectionSetup(key)
+                logger.info("ApiClient: Successfully connected via finishConnect().")
+                completeConnectionSetup(key) // Установит connected=true, сбросит pending, разбудит lock
             }
+            // Если finishConnect() == false, ключ остается на OP_CONNECT. connectionPending остается true.
+            // connectIfNeeded будет ждать.
         } catch (e: ConnectException) {
             val errorMsg = "Connection failed in finishConnect(): ${e.message}"
-            //logger.log(Level.WARNING, "ApiClient: $errorMsg")
-            updateConnectionStatus(false, errorMsg)
-            connectionPending.set(false)
-            key.cancel()
-            socketChannel.closeQuietly()
-            channel = null
-            synchronized(responseLock) { responseLock.notifyAll() }
+            logger.log(Level.WARNING, "ApiClient: $errorMsg") // Логгируем, но не дублируем сообщение в ioManager
+            updateConnectionStatus(false, errorMsg) // Обновит статус и вызовет callback
+            connectionPending.set(false) // Попытка завершена неудачно
+            key.cancel(); socketChannel.closeQuietly(); channel = null
+            synchronized(responseLock) { responseLock.notifyAll() } // Разбудить connectIfNeeded
         } catch (e: IOException) {
             val errorMsg = "IOException during finishConnect(): ${e.message}"
             logger.log(Level.WARNING, "ApiClient: $errorMsg")
+            // handleDisconnect установит connected=false, сбросит pending, разбудит lock
             handleDisconnect(key, errorMsg)
         }
     }
@@ -472,12 +455,15 @@ class ApiClient(
                         logger.log(Level.FINER, "ApiClient: Response object bytes received.")
                         val response = state.deserializeObject<Response>()
                         if (response != null) {
+                            logger.info("ApiClient: Received response. Text: '${response.responseText.take(30)}...', Descriptors count: ${response.commandDescriptors.size}") // <--- ДОБАВЬ ЭТОТ ЛОГ
                             if (response.commandDescriptors.isNotEmpty()) {
-                                onCommandDescriptorsUpdated?.invoke(response.commandDescriptors)
-                                logger.log(
-                                    Level.INFO,
-                                    "ApiClient: Command descriptors updated. Count: ${response.commandDescriptors.size}"
-                                )
+                                synchronized(descriptorsLock) { // Защищаем доступ к кэшу
+                                    lastKnownCommandDescriptors = response.commandDescriptors
+                                }
+                                Platform.runLater { // Убедимся, что callback в UI потоке
+                                    onCommandDescriptorsUpdated?.invoke(response.commandDescriptors)
+                                }
+                                logger.log(Level.INFO, "ApiClient: Command descriptors updated. Count: ${response.commandDescriptors.size}")
                             }
                             synchronized(responseLock) {
                                 lastReceivedResponse = response
@@ -499,6 +485,12 @@ class ApiClient(
                     } else break
                 }
             }
+        }
+    }
+
+    fun getCachedCommandDescriptors(): List<CommandDescriptor>? {
+        synchronized(descriptorsLock) {
+            return lastKnownCommandDescriptors
         }
     }
 
@@ -532,20 +524,22 @@ class ApiClient(
     private fun handleDisconnect(key: SelectionKey?, reason: String?) {
         val disconnectMessage = "Handling disconnect. Reason: ${reason ?: "Unknown"}"
         logger.log(Level.INFO, "ApiClient: $disconnectMessage")
-        updateConnectionStatus(false, disconnectMessage)
+        updateConnectionStatus(false, disconnectMessage) // Установит connected = false
+
+        // НЕ СБРАСЫВАЕМ КРЕДЫ АВТОМАТИЧЕСКИ ЗДЕСЬ
+        // apiClient.clearCurrentUserCredentials() // Это будет делать MainController при необходимости
 
         key?.cancel()
-        channel?.closeQuietly()
-        channel = null
-        connectionPending.set(false)
+        channel?.closeQuietly(); channel = null
+        connectionPending.set(false) // Важно сбросить, если был pending
         currentResponseState?.reset()
 
         synchronized(responseLock) {
             lastReceivedResponse = null
             responseAvailable.set(true)
-            responseLock.notifyAll()
+            responseLock.notifyAll() // Разбудить sendRequestAndWaitForResponse И connectIfNeeded
         }
-        logger.log(Level.WARNING, "ApiClient: Disconnected. ${pendingRequests.size} requests remain in queue.")
+        logger.warning("ApiClient: Disconnected. ${pendingRequests.size} requests remain in queue.")
         selector?.wakeup()
     }
 
@@ -644,4 +638,6 @@ class ApiClient(
     }
 
     fun isConnected() = connected.get()
+    fun isConnectionPending() = connectionPending.get() // Добавлено для LoginController
+    fun isRunning() = running
 }

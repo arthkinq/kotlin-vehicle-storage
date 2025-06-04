@@ -22,16 +22,14 @@ class ShowCommand : Command(
             return Response("Error: '${getName()}' command takes no arguments.")
         }
 
-        if (vehicleService.isEmpty()) {
-            return Response("Collection is empty.")
+        val allVehicles = vehicleService.getAll().sortedBy { it.name }
+        return if (allVehicles.isEmpty()) {
+            Response("Collection is empty.", vehicles = emptyList())
         } else {
-            val stringBuilder = StringBuilder("Vehicles in collection (sorted by name):\n")
-            vehicleService.getAll()
-                .sortedBy { it.name}
-                .forEach { item ->
-                    stringBuilder.append("$item\n")
-                }
-            return Response(stringBuilder.toString())
+            Response(
+                responseText = "Successfully retrieved ${allVehicles.size} vehicle(s).",
+                vehicles = allVehicles
+            )
         }
     }
 

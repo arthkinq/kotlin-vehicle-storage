@@ -170,9 +170,31 @@ class ApiServer(
 
                             requestProcessingPool.execute {
                                 val response = commandProcessor.processCommand(request)
+                                val commandName = request.body.getOrNull(0)?.lowercase() // Получаем имя команды
                                 response.clearCommandDescriptors()
-                                response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
+                                val commandsNotNeedingDescriptorsUpdate = setOf("show")
+                                val isLoginOrSpecialCommand = commandName == "login" || commandName == "register" || commandName == "get_commands"
+                                // Замените "login", "register", "get_commands" на ваши реальные имена команд,
+                                // если они должны триггерить обновление дескрипторов.
 
+                                if (isLoginOrSpecialCommand) { // Если это команда, которая должна вернуть дескрипторы
+                                    logger.log(Level.INFO, "Adding command descriptors to response for command: $commandName")
+                                    response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
+                                } else if (commandName != null && !commandsNotNeedingDescriptorsUpdate.contains(commandName)) {
+                                    // Если это какая-то другая команда, НЕ из списка "не требующих обновления",
+                                    // и НЕ специальная команда типа логина, то по умолчанию тоже добавим дескрипторы.
+                                    // Это можно настроить более тонко. Возможно, по умолчанию НЕ добавлять,
+                                    // а добавлять только для явных случаев (login, get_commands).
+                                    // Пока оставим так, чтобы покрыть команды типа "help", если они у вас есть и должны обновлять.
+                                    logger.log(Level.INFO, "Adding command descriptors to response for command: $commandName (default case)")
+                                    response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
+                                } else {
+                                    // Для "show" и других команд из commandsNotNeedingDescriptorsUpdate дескрипторы не добавляем
+                                    logger.log(
+                                        Level.INFO,
+                                        "Skipping command descriptors for data command: $commandName"
+                                    )
+                                }
                                 responsePreparationPool.execute {
                                     val responseBuffer = SerializationUtils.objectToByteBuffer(response)
                                     queueResponseBuffer(clientChannel, responseBuffer, key)
