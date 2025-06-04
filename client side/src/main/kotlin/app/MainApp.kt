@@ -106,7 +106,6 @@ class MainApp : Application() {
 
             val scene = Scene(root, 1200.0, 708.0) // Размеры из твоего FXML
             currentStage.scene = scene
-            currentStage.isResizable = true
             currentStage.minWidth = 1200.0
             currentStage.minHeight = 708.0
             currentStage.centerOnScreen()
