@@ -28,15 +28,16 @@ class MapVisualizationManager(
     private val displayedObjects = mutableListOf<MapObject>()
     private val userIdToColorMap = mutableMapOf<Int, Color>()
     private val colors = listOf(
-        Color.RED, Color.BLUE, Color.GREEN, Color.ORANGE, Color.PURPLE,
-        Color.CYAN, Color.MAGENTA, Color.YELLOWGREEN, Color.SLATEBLUE, Color.TOMATO
+        Color.web("#FF6B6B"), Color.web("#4DABF7"), Color.web("#51CF66"), 
+        Color.web("#FCC419"), Color.web("#845EF7"), Color.web("#20C997"), 
+        Color.web("#F06595"), Color.web("#94D82D"), Color.web("#5C7CFA"), Color.web("#FF922B")
     )
     private var colorIndex = 0
-    private val objectBaseSize = 20.0
+    private val objectBaseSize = 34.0
     private val objectClickRadius = objectBaseSize / 2 + 5
 
     private var animationLoop: AnimationTimer? = null
-    private val activeAnimatedObjects = mutableSetOf<MapObject>() // Объекты, чья анимация сейчас идет
+    private val activeAnimatedObjects = mutableSetOf<MapObject>()
 
     init {
         mapCanvas.addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
@@ -45,25 +46,23 @@ class MapVisualizationManager(
     }
 
     private fun startAnimationLoopIfNeeded() {
-        if (animationLoop == null && activeAnimatedObjects.isNotEmpty()) { // Запускаем только если есть что анимировать
+        if (animationLoop == null && activeAnimatedObjects.isNotEmpty()) {
             println("MapVisualizationManager: Starting AnimationTimer because activeAnimatedObjects is not empty.")
             animationLoop = object : AnimationTimer() {
                 override fun handle(now: Long) {
                     redrawAll()
-                    // Останавливаемся, только если множество активных объектов пусто
-                    // И все запущенные Timelines завершились (на всякий случай)
+
                     if (activeAnimatedObjects.isEmpty() && displayedObjects.none { it.activeAnimation?.status == Animation.Status.RUNNING }) {
                         this.stop()
                         animationLoop = null
                         println("MapVisualizationManager: AnimationTimer stopped.")
-                        redrawAll() // Финальная перерисовка
+                        redrawAll()
                     }
                 }
             }
             animationLoop?.start()
         }
     }
-
 
     private fun getUserColor(userId: Int): Color {
         return userIdToColorMap.computeIfAbsent(userId) {
@@ -73,13 +72,12 @@ class MapVisualizationManager(
         }
     }
 
-    // Отображает все объекты статически, без анимации. Используется для полного обновления.
     fun replaceAllVehicles(vehicles: List<Vehicle>) {
         println("MapVisualizationManager: replaceAllVehicles called with ${vehicles.size} vehicles.")
-        // Останавливаем ВСЕ активные анимации и очищаем связанные списки
+
         activeAnimatedObjects.forEach { it.activeAnimation?.stop() }
         activeAnimatedObjects.clear()
-        displayedObjects.forEach { it.activeAnimation?.stop() } // На случай если объект был, но не в activeAnimatedObjects
+        displayedObjects.forEach { it.activeAnimation?.stop() }
         displayedObjects.clear()
 
         vehicles.forEach { vehicle ->
@@ -97,20 +95,19 @@ class MapVisualizationManager(
         redrawAll()
     }
 
-    // Анимированно добавляет ОДИН объект
     fun addVehicleAnimated(vehicle: Vehicle) {
         if (displayedObjects.any { it.vehicle.id == vehicle.id }) {
             updateVehicleAnimated(vehicle); return
         }
         println("MapVisualizationManager: addVehicleAnimated for ID ${vehicle.id}")
         val color = getUserColor(vehicle.userId)
-        val canvasX = vehicle.coordinates.x.toDouble() // TODO: Масштабирование
-        val canvasY = vehicle.coordinates.y.toDouble() // TODO: Масштабирование
+        val canvasX = vehicle.coordinates.x.toDouble()
+        val canvasY = vehicle.coordinates.y.toDouble()
 
         val mapObject = MapObject(
             vehicle = vehicle,
-            currentX = canvasX, currentY = canvasY, currentSize = 0.0, // Начинаем с нулевого размера
-            color = color, alpha = 0.0 // Начинаем с прозрачного
+            currentX = canvasX, currentY = canvasY, currentSize = 0.0,
+            color = color, alpha = 0.0
         )
         displayedObjects.add(mapObject)
         activeAnimatedObjects.add(mapObject)
@@ -130,8 +127,8 @@ class MapVisualizationManager(
             mapObject.activeAnimation = null
             mapObject.alpha = 1.0
             mapObject.currentSize = objectBaseSize
-            activeAnimatedObjects.remove(mapObject) // <--- Удаляем из активных
-            // redrawAll() НЕ ЗДЕСЬ, AnimationTimer это сделает
+            activeAnimatedObjects.remove(mapObject)
+
         }
         timeline.play()
         startAnimationLoopIfNeeded()
@@ -160,8 +157,8 @@ class MapVisualizationManager(
         timeline.setOnFinished {
             mapObject.activeAnimation = null
             displayedObjects.remove(mapObject)
-            activeAnimatedObjects.remove(mapObject) // <--- Удаляем из активных
-            // redrawAll() НЕ ЗДЕСЬ
+            activeAnimatedObjects.remove(mapObject)
+
         }
         timeline.play()
         startAnimationLoopIfNeeded()
@@ -176,9 +173,9 @@ class MapVisualizationManager(
         mapObject.activeAnimation?.stop()
         activeAnimatedObjects.add(mapObject)
 
-        val newCanvasX = updatedVehicle.coordinates.x.toDouble() // TODO: Масштабирование
-        val newCanvasY = updatedVehicle.coordinates.y.toDouble() // TODO: Масштабирование
-        val newTargetSize = objectBaseSize // TODO: Если размер зависит от updatedVehicle
+        val newCanvasX = updatedVehicle.coordinates.x.toDouble()
+        val newCanvasY = updatedVehicle.coordinates.y.toDouble()
+        val newTargetSize = objectBaseSize
 
         val duration = Duration.millis(500.0)
         val xProp = SimpleDoubleProperty(mapObject.currentX).apply {
@@ -197,24 +194,22 @@ class MapVisualizationManager(
             }
         }
 
-
         val keyValuesEnd = mutableListOf<KeyValue>(
             KeyValue(xProp, newCanvasX),
             KeyValue(yProp, newCanvasY)
         )
-        if (mapObject.currentSize != newTargetSize) { // Анимируем размер только если он изменился
+        if (mapObject.currentSize != newTargetSize) {
             keyValuesEnd.add(KeyValue(sizeProp, newTargetSize))
         }
-
 
         val timeline = Timeline(
             KeyFrame(
                 Duration.ZERO,
                 KeyValue(xProp, mapObject.currentX),
                 KeyValue(yProp, mapObject.currentY),
-                KeyValue(sizeProp, mapObject.currentSize) // Начальный размер
+                KeyValue(sizeProp, mapObject.currentSize)
             ),
-            KeyFrame(duration, *keyValuesEnd.toTypedArray()) // Конечные значения
+            KeyFrame(duration, *keyValuesEnd.toTypedArray())
         )
 
         mapObject.activeAnimation = timeline
@@ -222,7 +217,7 @@ class MapVisualizationManager(
             mapObject.activeAnimation = null
             val index = displayedObjects.indexOfFirst { it.vehicle.id == updatedVehicle.id }
             if (index != -1) {
-                displayedObjects[index] = mapObject.copy( // Обновляем объект в списке
+                displayedObjects[index] = mapObject.copy(
                     vehicle = updatedVehicle,
                     currentX = newCanvasX,
                     currentY = newCanvasY,
@@ -230,7 +225,7 @@ class MapVisualizationManager(
                 )
             }
             activeAnimatedObjects.remove(mapObject)
-            redrawAll() // Финальная точная отрисовка
+            redrawAll()
         }
         timeline.play()
         startAnimationLoopIfNeeded()
@@ -238,29 +233,40 @@ class MapVisualizationManager(
 
     fun redrawAll() {
         if (mapCanvas.width <= 0 || mapCanvas.height <= 0) {
-            // println("MapVisualizationManager: redrawAll - Canvas not ready or zero size.")
+
             return
         }
         gc.clearRect(0.0, 0.0, mapCanvas.width, mapCanvas.height)
 
-        // Тестовый квадрат, чтобы видеть, что Canvas рисует
-        // gc.fill = Color.LIMEGREEN
-        // gc.fillRect(10.0, 10.0, 50.0, 50.0)
+        val shadow = javafx.scene.effect.DropShadow(6.0, Color.rgb(0, 0, 0, 0.35))
 
         displayedObjects.forEach { obj ->
             gc.globalAlpha = obj.alpha.coerceIn(0.0, 1.0)
-            gc.fill = obj.color
             val radius = obj.currentSize / 2.0
-            if (radius > 0) { // Рисуем только если есть размер
+            
+            if (radius > 0) {
+                // Outer circle with drop shadow
+                gc.setEffect(shadow)
+                gc.fill = obj.color
                 gc.fillOval(obj.currentX - radius, obj.currentY - radius, obj.currentSize, obj.currentSize)
+                
+                // White border outline
+                gc.setEffect(null)
+                gc.lineWidth = 2.5
+                gc.stroke = Color.WHITE
+                gc.strokeOval(obj.currentX - radius, obj.currentY - radius, obj.currentSize, obj.currentSize)
+                
+                // ID text
                 if (obj.currentSize > 15 && obj.alpha > 0.5) {
-                    gc.fill = Color.BLACK
-                    gc.font = Font.font(10.0)
+                    gc.fill = Color.WHITE
+                    gc.font = Font.font("System", javafx.scene.text.FontWeight.BOLD, 13.0)
+                    gc.textAlign = javafx.scene.text.TextAlignment.CENTER
+                    gc.textBaseline = javafx.geometry.VPos.CENTER
                     gc.fillText(
                         obj.vehicle.id.toString(),
-                        obj.currentX - radius + 2,
-                        obj.currentY + 4
-                    ) // Скорректировал Y для текста
+                        obj.currentX,
+                        obj.currentY
+                    )
                 }
             }
             gc.globalAlpha = 1.0
@@ -268,7 +274,7 @@ class MapVisualizationManager(
     }
 
     private fun findClickedObject(clickX: Double, clickY: Double): Vehicle? {
-        // Ищем с конца, чтобы кликнуть по верхнему объекту, если они перекрываются
+
         for (obj in displayedObjects.asReversed()) {
             val dx = clickX - obj.currentX
             val dy = clickY - obj.currentY
@@ -282,5 +288,4 @@ class MapVisualizationManager(
 
     fun getDisplayedObjectsCount(): Int = displayedObjects.size
 }
-
 

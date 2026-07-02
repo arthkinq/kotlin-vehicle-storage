@@ -26,12 +26,11 @@ class AddIfMinCommand : Command(
         if (vehicle == null) return Response("Error: Vehicle data is required for add command.")
         if (userId == null) return Response("Error: User authentication required to add elements.")
         if (vehicle == null) {
-            ioManager.error("AddIfMinCommand: Vehicle object is null in the request.") // Лог на сервере
+            ioManager.error("AddIfMinCommand: Vehicle object is null in the request.")
             return Response("Error: Vehicle data is missing in the request for '${getName()}' command.")
         }
 
         val minVehicleInCollection = vehicleService.getMin("enginePower")
-
 
         if (minVehicleInCollection == null || vehicle < minVehicleInCollection) {
             try {

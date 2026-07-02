@@ -4,7 +4,7 @@ import myio.IOManager
 import common.CommandArgument
 import common.Response
 import core.VehicleService
-import model.Vehicle // Импорт нужен, если Vehicle используется в сигнатуре execute
+import model.Vehicle
 
 class ShowCommand : Command(
     name = "show",

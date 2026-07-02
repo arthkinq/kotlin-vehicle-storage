@@ -1,6 +1,5 @@
 package commands
 
-
 import myio.IOManager
 import common.CommandArgument
 import common.Response

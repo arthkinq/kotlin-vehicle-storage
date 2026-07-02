@@ -5,19 +5,17 @@ import model.Vehicle
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
-/* работает с vehicleDAO чтобы обновлять все в бд, а только потом в кэш*/
-
 class VehicleService (private val vehicleDAO: VehicleDAO) {
     private val logger = Logger.getLogger(VehicleService::class.java.name)
-    // Безопасен для тредсов
+
     private val vehiclesCache: ConcurrentHashMap<Int, Vehicle> = ConcurrentHashMap()
-    // Заглушечка
+
     private val cacheLock = Any()
     init {
         loadDB()
     }
     fun loadDB() {
-        /* ConcHashMap уже безопасен для одиночных операций, но не для составных*/
+
         synchronized(cacheLock) {
             vehiclesCache.clear()
             val vehiclesFromDB = vehicleDAO.getAllVehicles()
@@ -79,8 +77,7 @@ class VehicleService (private val vehicleDAO: VehicleDAO) {
         return false
     }
     fun getVehicleById(vehicleId: Int): Vehicle? {
-        /*val success = vehicleDAO.getVehicleById(vehicleId)
-        if(success != null) { return success }*/
+
         return vehiclesCache.get(vehicleId)
     }
     fun getAll(): List<Vehicle> {
@@ -171,7 +168,7 @@ class VehicleService (private val vehicleDAO: VehicleDAO) {
     fun deleteByNumber(number: Int, userId: Int): Boolean {
         synchronized(cacheLock) {
             if (vehiclesCache.isEmpty() || number < 0 || number >= vehiclesCache.size) {
-                return false // Невалидный индекс
+                return false
             }
 
             val sortedVehicles = vehiclesCache.values.sortedBy { it.id }

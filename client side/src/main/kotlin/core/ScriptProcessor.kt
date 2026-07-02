@@ -15,10 +15,10 @@ class ScriptProcessor(
     private val apiClient: ApiClient,
     private val ioManager: IOManager,
     private val vehicleReader: VehicleReader,
-    private val getCommandRegistry: () -> Map<String, CommandDescriptor>, // Функция для получения актуального реестра команд
-    private val onScriptOutput: (String) -> Unit, // Callback для вывода сообщений в GUI (например, в текстовую область)
-    private val onScriptError: (String) -> Unit, // Callback для вывода ошибок в GUI
-    private val onAuthErrorDuringScript: () -> Unit // Callback для обработки ошибки аутентификации во время скрипта
+    private val getCommandRegistry: () -> Map<String, CommandDescriptor>,
+    private val onScriptOutput: (String) -> Unit,
+    private val onScriptError: (String) -> Unit,
+    private val onAuthErrorDuringScript: () -> Unit
 ) {
     private val maxRecursionDepth = 5
     private var currentRecursionDepth = 0
@@ -69,16 +69,16 @@ class ScriptProcessor(
 
         try {
             Files.newBufferedReader(path).use { reader ->
-                val scriptInputManager = object : InputManager { // Локальный InputManager для файла
+                val scriptInputManager = object : InputManager {
                     override fun readLine(): String? = reader.readLine()
-                    override fun hasInput(): Boolean = reader.ready() // Для файлов 'ready' обычно надежен
+                    override fun hasInput(): Boolean = reader.ready()
                 }
 
                 var lineNumber = 0
                 while (true) {
                     lineNumber++
-                    val line = scriptInputManager.readLine()?.trim() ?: break // Конец файла
-                    if (line.isEmpty() || line.startsWith("#")) continue // Пропуск комментариев и пустых строк
+                    val line = scriptInputManager.readLine()?.trim() ?: break
+                    if (line.isEmpty() || line.startsWith("#")) continue
 
                     onScriptOutput("[Script Line $lineNumber]> $line")
                     val parts = line.split("\\s+".toRegex(), 2)
@@ -87,23 +87,22 @@ class ScriptProcessor(
 
                     if (commandNameFromScript.isBlank()) continue
 
-                    // Preflight check для каждой команды из скрипта
                     if (!apiClient.isConnected()) {
                         onScriptOutput("Script '$filePath': Not connected. Attempting to connect for command '$commandNameFromScript'...")
                         if (!apiClient.connectIfNeeded()) {
                             onScriptError("Script '$filePath': Failed to connect to server. Command '$commandNameFromScript' skipped.")
-                            continue // Пропускаем эту команду, пытаемся выполнить следующую
+                            continue
                         }
-                        // Дадим время на обновление команд, если только что подключились
+
                         try { Thread.sleep(200) } catch (e: InterruptedException) { Thread.currentThread().interrupt() }
                     }
 
-                    val commandRegistry = getCommandRegistry() // Получаем актуальный реестр
+                    val commandRegistry = getCommandRegistry()
                     val descriptor = commandRegistry[commandNameFromScript]
 
                     if (commandNameFromScript == "execute_script") {
                         if (argumentStringFromScript.isNotBlank()) {
-                            executeScript(argumentStringFromScript) // Рекурсивный вызов
+                            executeScript(argumentStringFromScript)
                         } else {
                             onScriptError("[Script Error Line $lineNumber] Usage: execute_script <filename>")
                         }
@@ -117,7 +116,7 @@ class ScriptProcessor(
             }
         } catch (e: Exception) {
             onScriptError("Exception during script execution '$filePath': ${e.message}")
-            e.printStackTrace() // Для детальной отладки в консоль сервера/разработчика
+            e.printStackTrace()
         } finally {
             executedScriptPaths.remove(absolutePath)
             currentRecursionDepth--
@@ -128,13 +127,13 @@ class ScriptProcessor(
     private fun processScriptCommand(
         descriptor: CommandDescriptor,
         argsFromScriptLine: List<String>,
-        scriptInputManager: InputManager, // Для чтения данных Vehicle
+        scriptInputManager: InputManager,
         baseLineNumber: Int
     ) {
         val currentUserCreds = apiClient.getCurrentUserCredentials()
         if (currentUserCreds == null && descriptor.name != "login" && descriptor.name != "register") {
             onScriptError("[Script Error Line $baseLineNumber] Cannot execute command '${descriptor.name}': Not logged in.")
-            // Если команда требует Vehicle, нужно "прочитать" строки данных Vehicle, чтобы не сломать парсинг следующих команд
+
             if (descriptor.requiresVehicleObject) {
                 for (i in 1..7) scriptInputManager.readLine()
             }
@@ -161,15 +160,12 @@ class ScriptProcessor(
             }
         }
 
-        // Формируем тело запроса. Имя команды берем из дескриптора (оно "чистое").
-        // Сервер сам разберется с "+" на основе requiresVehicleObject в своем CommandDescriptor.
-        // Или, если клиент должен отправлять имя с "+", то нужно это учитывать при получении descriptor.name
         val finalBody = listOf(descriptor.name) + argsFromScriptLine
 
         val request = Request(
             body = finalBody,
             vehicle = vehicleForRequest,
-            username = currentUserCreds?.first, // Могут быть null для login/register
+            username = currentUserCreds?.first,
             password = currentUserCreds?.second
         )
 
@@ -182,10 +178,10 @@ class ScriptProcessor(
                 response.responseText.contains("session invalid", ignoreCase = true)
             ) {
                 onScriptError("Authentication error from server during script for command '${descriptor.name}'.")
-                apiClient.clearCurrentUserCredentials() // Сбрасываем креды
-                onAuthErrorDuringScript() // Уведомляем GUI о необходимости релогина
+                apiClient.clearCurrentUserCredentials()
+                onAuthErrorDuringScript()
             }
-            // Обновление списка команд сервера (onCommandDescriptorsUpdated) произойдет автоматически в ApiClient
+
         } else {
             onScriptError("[Script ERROR] No response for '${descriptor.name}' command or request timed out.")
         }

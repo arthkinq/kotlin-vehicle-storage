@@ -5,5 +5,4 @@ interface OutputManager {
     fun writeLine(text: String)
     fun error(text: String)
 
-
 }

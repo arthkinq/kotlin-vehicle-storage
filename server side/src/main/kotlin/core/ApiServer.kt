@@ -35,7 +35,6 @@ class ApiServer(
     private val requestProcessingPool = ForkJoinPool(Runtime.getRuntime().availableProcessors())
     private val responsePreparationPool = ForkJoinPool(Runtime.getRuntime().availableProcessors())
 
-
     @Volatile
     private var running = false
 
@@ -170,26 +169,20 @@ class ApiServer(
 
                             requestProcessingPool.execute {
                                 val response = commandProcessor.processCommand(request)
-                                val commandName = request.body.getOrNull(0)?.lowercase() // Получаем имя команды
+                                val commandName = request.body.getOrNull(0)?.lowercase()
                                 response.clearCommandDescriptors()
                                 val commandsNotNeedingDescriptorsUpdate = setOf("show")
                                 val isLoginOrSpecialCommand = commandName == "login" || commandName == "register" || commandName == "get_commands"
-                                // Замените "login", "register", "get_commands" на ваши реальные имена команд,
-                                // если они должны триггерить обновление дескрипторов.
 
-                                if (isLoginOrSpecialCommand) { // Если это команда, которая должна вернуть дескрипторы
+                                if (isLoginOrSpecialCommand) {
                                     logger.log(Level.INFO, "Adding command descriptors to response for command: $commandName")
                                     response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
                                 } else if (commandName != null && !commandsNotNeedingDescriptorsUpdate.contains(commandName)) {
-                                    // Если это какая-то другая команда, НЕ из списка "не требующих обновления",
-                                    // и НЕ специальная команда типа логина, то по умолчанию тоже добавим дескрипторы.
-                                    // Это можно настроить более тонко. Возможно, по умолчанию НЕ добавлять,
-                                    // а добавлять только для явных случаев (login, get_commands).
-                                    // Пока оставим так, чтобы покрыть команды типа "help", если они у вас есть и должны обновлять.
+
                                     logger.log(Level.INFO, "Adding command descriptors to response for command: $commandName (default case)")
                                     response.addCommandDescriptors(commandProcessor.getCommandDescriptors())
                                 } else {
-                                    // Для "show" и других команд из commandsNotNeedingDescriptorsUpdate дескрипторы не добавляем
+
                                     logger.log(
                                         Level.INFO,
                                         "Skipping command descriptors for data command: $commandName"
@@ -231,7 +224,6 @@ class ApiServer(
             selector?.wakeup()
         } ?: logger.warning("No write queue for client ${clientChannel.remoteAddress} when trying to queue response.")
     }
-
 
     private fun handleWrite(key: SelectionKey) {
         val clientChannel = key.channel() as SocketChannel
@@ -339,7 +331,6 @@ class ApiServer(
             Thread.currentThread().interrupt()
         }
         logger.log(Level.INFO, "ForkJoinPools shutdown.")
-
 
         selector?.let {
             if (it.isOpen) {

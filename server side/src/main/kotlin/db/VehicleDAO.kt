@@ -7,13 +7,10 @@ import java.sql.Statement
 import java.util.logging.Level
 import java.util.logging.Logger
 
-/* Выполняет запросы, связанные с вехикле, возвращает список вехикле/вехикле*/
 class VehicleDAO {
 
     private val logger = Logger.getLogger(VehicleDAO::class.java.name)
 
-    /* принимает объект ResultSet
-     и преобразует данные из этой строки в объект типа Vehicle.*/
     private fun mapRowToVehicle(rs: ResultSet): Vehicle {
         return Vehicle(
             id = rs.getInt("id"),
@@ -31,7 +28,6 @@ class VehicleDAO {
         )
     }
 
-    /* Принимает объект Vehicle и ID пользователя (userId), который добавляет этот Vehicle.*/
     fun addVehicle(vehicle: Vehicle, userId: Int): Vehicle? {
         val sql = """
             INSERT INTO vehicles (name, coordinates_x, coordinates_y, creation_date, engine_power,
@@ -80,8 +76,7 @@ class VehicleDAO {
     }
 
     fun updateVehicle(vehicle: Vehicle): Boolean {
-        /* Условие WHERE id = ? AND user_id = ? гарантирует, что обновляется конкретный объект Vehicle
-         и что текущий пользователь (vehicle.userId) является его владельцем.*/
+
         val sql = """
             UPDATE vehicles SET name = ?, coordinates_x = ?, coordinates_y = ?,
                                engine_power = ?, distance_travelled = ?, type = ?, fuel_type = ?
@@ -162,7 +157,7 @@ class VehicleDAO {
     fun getAllVehicles(): List<Vehicle> {
         val vehicles = mutableListOf<Vehicle>()
         val sql = """
-        SELECT v.*, u.username, u.first_name, u.last_name 
+        SELECT v.*, u.username
         FROM vehicles v
         LEFT JOIN users u ON v.user_id = u.id
     """
@@ -183,5 +178,4 @@ class VehicleDAO {
         return vehicles
     }
 }
-   
 

@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:12-alpine
+    container_name: vehicle_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: proga
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server side
+      dockerfile: Dockerfile
+    container_name: vehicle_server
+    environment:
+      DB_HOST: db
+      DB_NAME: proga
+      DB_USER: postgres
+      DB_PASSWORD: test
+      DB_PORT: 5432
+    ports:
+      - "8888:8888"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

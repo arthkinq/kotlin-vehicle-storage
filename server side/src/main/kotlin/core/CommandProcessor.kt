@@ -54,12 +54,6 @@ class CommandProcessor(
         return mutableCommands.toMap()
     }
 
-    /**
-     * Обрабатывает команду, полученную от клиента.
-     * @param commandBody Список строк, где первый элемент - имя команды, остальные - аргументы.
-     * @param vehicleFromRequest Объект Vehicle, если команда его требует (например, add, update_id).
-     * @return Объект Response с результатом выполнения команды.
-     */
     fun processCommand(request: Request): Response {
         val commandBody = request.body
         val vehicleFromRequest = request.vehicle
@@ -99,7 +93,6 @@ class CommandProcessor(
             return Response("Error: Authentication failed. Invalid username or password.")
         }
         logger.info("User '$username' (ID: ${user.id}) authenticated successfully.")
-
 
         if (command.doesRequireVehicle() && vehicleFromRequest == null) {
             logger.log(Level.WARNING, "CommandProcessor: Command '$commandName' requires a Vehicle object, but none was provided.")

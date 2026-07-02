@@ -8,7 +8,6 @@ import java.nio.ByteOrder
 
 object SerializationUtils {
 
-
     val jsonFormat = Json {
         ignoreUnknownKeys = true
         prettyPrint = false

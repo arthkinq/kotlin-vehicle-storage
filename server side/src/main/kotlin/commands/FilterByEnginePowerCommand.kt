@@ -24,7 +24,6 @@ class FilterByEnginePowerCommand : FilterByCharacteristicCommand(
         }
         return super.execute(listOf("enginePower", args[0]), vehicleService, ioManager, null, userId)
 
-
     }
 
     override fun getExpectedArguments(): List<CommandArgument> {

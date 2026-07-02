@@ -1,9 +1,8 @@
 package gui
 
-// --- Импорты: Объединяем из обеих версий ---
 import app.MainApp
-import common.ArgumentType // Из второй версии (использовался в showArgumentInputDialog)
-import common.CommandArgument // Из первой (для showArgumentInputDialog)
+import common.ArgumentType
+import common.CommandArgument
 import common.CommandDescriptor
 import common.Request
 import core.ApiClient
@@ -11,24 +10,22 @@ import javafx.application.Platform
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import javafx.fxml.FXML
-import javafx.geometry.Insets // Из первой (для showArgumentInputDialog)
-import javafx.scene.canvas.Canvas // Из второй
+import javafx.geometry.Insets
+import javafx.scene.canvas.Canvas
 import javafx.scene.control.*
 import javafx.scene.control.cell.PropertyValueFactory
-import javafx.scene.layout.GridPane // Из первой (для showArgumentInputDialog)
-import javafx.scene.layout.Pane // Из второй
+import javafx.scene.layout.GridPane
+import javafx.scene.layout.Pane
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
-import javafx.stage.FileChooser // Из первой (оставляем)
+import javafx.stage.FileChooser
 import javafx.stage.Stage
 import model.FuelType
 import model.Vehicle
 import model.VehicleType
-// javafx.scene.control.Dialog и ButtonBar.ButtonData уже были в первой, оставляем
 
 class MainController {
 
-    // --- @FXML Поля: Берем из ВТОРОЙ версии (она новее и содержит поля для карты) ---
     @FXML private lateinit var mapTab: Tab
     @FXML private lateinit var mapPane: Pane
     @FXML private lateinit var mapCanvas: Canvas
@@ -37,7 +34,6 @@ class MainController {
     @FXML private lateinit var connectionStatusLabel: Label
     @FXML private lateinit var logoutButton: Button
 
-    // Поля для TableView (одинаковы в обеих версиях, берем любые)
     @FXML private lateinit var vehicleTableView: TableView<Vehicle>
     @FXML private lateinit var idColumn: TableColumn<Vehicle, Int>
     @FXML private lateinit var nameColumn: TableColumn<Vehicle, String>
@@ -50,23 +46,21 @@ class MainController {
     @FXML private lateinit var fuelTypeColumn: TableColumn<Vehicle, FuelType?>
     @FXML private lateinit var userIdColumn: TableColumn<Vehicle, Int>
 
-    // --- Остальные поля: Берем из ВТОРОЙ версии ---
     private lateinit var apiClient: ApiClient
     private lateinit var mainApp: MainApp
     private lateinit var currentStage: Stage
     private lateinit var mapVisualizationManager: MapVisualizationManager
 
     private val commandRegistry = mutableMapOf<String, CommandDescriptor>()
-    private var mapDataLoadedAtLeastOnce = false // Из второй
+    private var mapDataLoadedAtLeastOnce = false
     private val vehicleData: ObservableList<Vehicle> = FXCollections.observableArrayList()
 
-    // --- Метод initialize(): Берем из ВТОРОЙ версии (с логикой карты), добавим очистку commandsVBox ---
     fun initialize() {
         println("MainController: initialize() called.")
-        commandsVBox.children.clear() // Добавлено из первой версии
+        commandsVBox.children.clear()
         logoutButton.isDisable = true
 
-        setupTableColumns() // Было и там, и там, содержимое setupTableColumns берем из второй
+        setupTableColumns()
         vehicleTableView.items = vehicleData
 
         Platform.runLater {
@@ -98,15 +92,13 @@ class MainController {
         }
     }
 
-    // --- Метод setupTableColumns(): Берем из ВТОРОЙ версии (с SimpleIntegerProperty и т.д.) ---
     private fun setupTableColumns() {
         idColumn.cellValueFactory = PropertyValueFactory("id")
         nameColumn.cellValueFactory = PropertyValueFactory("name")
-        // Используем cellValueFactory для координат из второй версии, так как они корректно работают с геттерами
-        // или напрямую с полями объекта Coordinates, если PropertyValueFactory не справляется с вложенностью
+
         coordXColumn.setCellValueFactory { cellData -> javafx.beans.property.SimpleIntegerProperty(cellData.value.coordinates.x).asObject() }
         coordYColumn.setCellValueFactory { cellData -> javafx.beans.property.SimpleFloatProperty(cellData.value.coordinates.y).asObject() }
-        creationDateColumn.cellValueFactory = PropertyValueFactory("creationDate") // TODO: Format
+        creationDateColumn.cellValueFactory = PropertyValueFactory("creationDate")
         enginePowerColumn.cellValueFactory = PropertyValueFactory("enginePower")
         distanceColumn.cellValueFactory = PropertyValueFactory("distanceTravelled")
         typeColumn.cellValueFactory = PropertyValueFactory("type")
@@ -114,7 +106,6 @@ class MainController {
         userIdColumn.cellValueFactory = PropertyValueFactory("userId")
     }
 
-    // --- Метод initialMapAndTableLoad(): Из ВТОРОЙ версии ---
     private fun initialMapAndTableLoad() {
         println("MainController: initialMapAndTableLoad. Canvas ready. ApiClient init: ${::apiClient.isInitialized}")
         if (!::apiClient.isInitialized) return
@@ -125,25 +116,19 @@ class MainController {
         }
     }
 
-    // --- Методы setApiClient, setMainApp, setCurrentStage, userLoggedIn:
-    // В userLoggedIn() берем логику из ВТОРОЙ версии (с fetchAndDisplayMapObjects)
-    // Остальные идентичны или почти идентичны, оставляем как есть (из любой версии).
     fun setApiClient(apiClient: ApiClient) {
         println("MainController: setApiClient() called.")
         this.apiClient = apiClient
         setupApiClientListeners()
-        // В первой версии было:
-        // val cachedDescriptors = apiClient.getCachedCommandDescriptors()
-        // if (cachedDescriptors != null) { ... commandRegistry.clear() ... }
-        // Во второй:
-        apiClient.getCachedCommandDescriptors()?.let { updateCommandRegistryAndDisplay(it) } // Это более Kotlin-way
+
+        apiClient.getCachedCommandDescriptors()?.let { updateCommandRegistryAndDisplay(it) }
         refreshUIState()
     }
 
     fun setMainApp(mainApp: MainApp) { this.mainApp = mainApp }
     fun setCurrentStage(stage: Stage) { this.currentStage = stage }
 
-    fun userLoggedIn() { // Из ВТОРОЙ ВЕРСИИ
+    fun userLoggedIn() {
         println("MainController: userLoggedIn() signal received.")
         refreshUIState()
         if (apiClient.isConnected()) {
@@ -152,7 +137,6 @@ class MainController {
         }
     }
 
-    // --- Метод refreshUIState(): Берем из ВТОРОЙ версии (с mapVisualizationManager.redrawAll()) ---
     private fun refreshUIState() {
         if (!::apiClient.isInitialized) {
             println("MainController: refreshUIState - apiClient not initialized yet.")
@@ -166,28 +150,19 @@ class MainController {
             connectionStatusLabel.text = if (apiClient.isConnected()) "Connection: Connected" else "Connection: Disconnected"
 
             updateCommandDisplayItself()
-            if(::mapVisualizationManager.isInitialized) { // Проверка перед вызовом
+            if(::mapVisualizationManager.isInitialized) {
                 mapVisualizationManager.redrawAll()
             }
 
-            // Логика из первой версии для обновления таблицы, если она пуста, уже есть в userLoggedIn и onConnectionStatusChanged
-            // if (creds != null && apiClient.isConnected() && vehicleData.isEmpty()) {
-            //    refreshVehicleTableData()
-            // }
         }
     }
 
-    // --- Метод setupApiClientListeners(): Берем из ВТОРОЙ версии (с fetchAndDisplayMapObjects при реконнекте) ---
     private fun setupApiClientListeners() {
         apiClient.onCommandDescriptorsUpdated = { descriptorsFromServer ->
             Platform.runLater {
                 println("MainController: Listener onCommandDescriptorsUpdated received ${descriptorsFromServer.size} descriptors.")
                 updateCommandRegistryAndDisplay(descriptorsFromServer)
-                // Логика обновления таблицы из первой версии (если команды пришли, а таблица пуста)
-                // val creds = apiClient.getCurrentUserCredentials()
-                // if (creds != null && apiClient.isConnected() && vehicleData.isEmpty() && commandRegistry.isNotEmpty()) {
-                //    refreshVehicleTableData() // Эта логика уже есть в onConnectionStatusChanged и userLoggedIn, возможно, здесь избыточна
-                // }
+
             }
         }
 
@@ -216,7 +191,6 @@ class MainController {
         }
     }
 
-    // --- Метод updateCommandRegistryAndDisplay(): Из ВТОРОЙ версии ---
     private fun updateCommandRegistryAndDisplay(descriptors: List<CommandDescriptor>) {
         commandRegistry.clear()
         descriptors.forEach { commandRegistry[it.name.lowercase()] = it }
@@ -224,15 +198,12 @@ class MainController {
         updateCommandDisplayItself()
     }
 
-    // --- Метод updateCommandDisplayItself(): Логика почти идентична, берем из ВТОРОЙ (с Platform.runLater)
-    // В первой версии не было Platform.runLater, но он здесь уместен.
-    // Добавление execute_script идентично в обеих.
     private fun updateCommandDisplayItself() {
-        Platform.runLater { // Из второй версии
+        Platform.runLater {
             println("MainController: updateCommandDisplayItself. commandRegistry size: ${commandRegistry.size}, User: ${apiClient.getCurrentUserCredentials()?.first}")
             commandsVBox.children.clear()
             val currentUser = apiClient.getCurrentUserCredentials()
-            // Логика displayableDescriptors из ПЕРВОЙ версии (она чуть полнее с учетом execute_script)
+
             val displayableDescriptors = mutableListOf<CommandDescriptor>()
             if (currentUser != null) {
                 displayableDescriptors.addAll(this.commandRegistry.values)
@@ -251,17 +222,17 @@ class MainController {
             if (displayableDescriptors.isEmpty()) {
                 val placeholderText = when {
                     !apiClient.isConnected() -> "Not connected. Commands unavailable."
-                    currentUser == null && apiClient.isConnected() -> "Connected. Please login to see commands." // Из второй
-                    currentUser != null && apiClient.isConnected() -> "Connected. Loading commands or no commands available..." // Из второй
-                    else -> "Commands unavailable." // Из второй
+                    currentUser == null && apiClient.isConnected() -> "Connected. Please login to see commands."
+                    currentUser != null && apiClient.isConnected() -> "Connected. Loading commands or no commands available..."
+                    else -> "Commands unavailable."
                 }
                 commandsVBox.children.add(Label(placeholderText).apply { font = Font.font("Tahoma", 15.0) })
                 return@runLater
             }
 
-            println("MainController: Creating ${displayableDescriptors.size} command buttons.") // Из первой
+            println("MainController: Creating ${displayableDescriptors.size} command buttons.")
             displayableDescriptors.sortedBy { it.name }.forEach { desc ->
-                val button = Button(desc.name.replaceFirstChar { it.titlecase() }) // titlecase() из второй, но это мелкое отличие
+                val button = Button(desc.name.replaceFirstChar { it.titlecase() })
                 button.maxWidth = Double.MAX_VALUE; button.prefHeight = 40.0; button.isWrapText = true
                 button.font = Font.font("Tahoma", 14.0); button.tooltip = Tooltip(desc.description)
                 button.setOnAction { handleCommandExecution(desc) }
@@ -270,7 +241,6 @@ class MainController {
         }
     }
 
-    // --- Метод fetchAndDisplayMapObjects(): Из ВТОРОЙ версии (заглушка createTestVehicles там же) ---
     private fun fetchAndDisplayMapObjects(animate: Boolean = false) {
         val currentUserCreds = apiClient.getCurrentUserCredentials()
         if (currentUserCreds == null || !apiClient.isConnected()) {
@@ -287,7 +257,7 @@ class MainController {
         Thread {
             val response = apiClient.sendRequestAndWaitForResponse(showRequest)
             Platform.runLater {
-                if (response?.vehicles != null && !response.responseText.lowercase().contains("error:")) { // Используем response.vehicles
+                if (response?.vehicles != null && !response.responseText.lowercase().contains("error:")) {
                     val vehiclesFromServer = response.vehicles
                     if (effectiveAnimate) {
                         if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
@@ -299,7 +269,7 @@ class MainController {
                     }
                 } else if (response != null && response.responseText.contains("Collection is empty", ignoreCase = true)) {
                     if(::mapVisualizationManager.isInitialized) mapVisualizationManager.replaceAllVehicles(emptyList())
-                    mapDataLoadedAtLeastOnce = false // Коллекция пуста, значит не загружено
+                    mapDataLoadedAtLeastOnce = false
                 }
                 else {
                     val errorDetail = response?.responseText ?: "No response or timeout."
@@ -310,7 +280,6 @@ class MainController {
         }.start()
     }
 
-    // --- Метод handleLogout(): Из ВТОРОЙ версии (с mapVisualizationManager и mapDataLoadedAtLeastOnce) ---
     @FXML
     private fun handleLogout() {
         println("Logout button clicked by ${apiClient.getCurrentUserCredentials()?.first ?: "Guest"}")
@@ -323,7 +292,6 @@ class MainController {
         mainApp.onLogout(currentStage)
     }
 
-    // --- Метод refreshVehicleTableData(): Из ВТОРОЙ версии (с более детальной обработкой response.vehicles) ---
     private fun refreshVehicleTableData() {
         val currentUserCreds = apiClient.getCurrentUserCredentials()
         if (currentUserCreds == null || !apiClient.isConnected()) {
@@ -347,19 +315,17 @@ class MainController {
                 }
                 else {
                     showErrorAlert("Table Update Error", "Failed to retrieve vehicle data. Response: ${response?.responseText}")
-                    vehicleData.clear() // Очищаем при ошибке
+                    vehicleData.clear()
                 }
             }
         }.start()
     }
 
-    // --- Метод updateTableWithVehicles(): Из ВТОРОЙ версии (с setAll) ---
-    private fun updateTableWithVehicles(vehicles: List<Vehicle>) { // vehicles не nullable во второй версии, это лучше
-        vehicleData.setAll(vehicles) // setAll эффективнее чем clear + addAll
+    private fun updateTableWithVehicles(vehicles: List<Vehicle>) {
+        vehicleData.setAll(vehicles)
         println("MainController: TableView updated with ${vehicles.size} items.")
     }
 
-    // --- Метод showVehicleInfo(): Из ВТОРОЙ версии ---
     private fun showVehicleInfo(vehicle: Vehicle) {
         val alert = Alert(Alert.AlertType.INFORMATION)
         alert.title = "Vehicle Information"
@@ -376,10 +342,6 @@ class MainController {
         alert.showAndWait()
     }
 
-    // --- Метод createTestVehicles(): Из ВТОРОЙ версии (удалим его, если он не нужен для реальной работы) ---
-    // private fun createTestVehicles(username: String): List<Vehicle> { ... }
-
-    // --- Методы showInfoAlert, showErrorAlert: Идентичны, оставляем ---
     private fun showInfoAlert(title: String, content: String) {
         Alert(Alert.AlertType.INFORMATION).apply {
             this.title = title; this.headerText = null; this.contentText = content; this.showAndWait()
@@ -391,7 +353,6 @@ class MainController {
         }
     }
 
-    // --- Метод handleCommandExecution(): ОБЪЕДИНЯЕМ ---
     private fun handleCommandExecution(descriptor: CommandDescriptor) {
         println("UI: Command button clicked: ${descriptor.name}")
 
@@ -402,7 +363,7 @@ class MainController {
         }
 
         if (!apiClient.isConnected()) {
-            // Код для попытки реконнекта (одинаков в обеих версиях)
+
             showInfoAlert("Connection", "Not connected. Attempting to connect for command '${descriptor.name}'...")
             Thread {
                 val connected = apiClient.connectIfNeeded()
@@ -417,9 +378,8 @@ class MainController {
             return
         }
 
-        // --- Сбор аргументов команды: Берем из ПЕРВОЙ версии (с showArgumentInputDialog) ---
         var collectedArgs: List<String>? = null
-        // Фильтр аргументов из ПЕРВОЙ версии (более точный, чем ArgumentType.NO_ARGS во второй)
+
         val argumentsToAskFor = descriptor.arguments.filter {
             it.type != common.ArgumentType.NO_ARGS && !it.isOptional
         }
@@ -434,12 +394,11 @@ class MainController {
             println("Command '${descriptor.name}' does not require mandatory argument input.")
         }
 
-        // --- Сбор объекта Vehicle: Берем из ПЕРВОЙ версии (с заглушкой VehicleInputDialog) ---
         var vehicleForRequest: Vehicle? = null
         if (descriptor.requiresVehicleObject) {
             println("Command '${descriptor.name}' requires Vehicle object. Showing Vehicle form...")
-            // TODO: Здесь должен быть вызов вашего реального VehicleInputDialog
-            val vehicleDialog = VehicleInputDialog(currentStage, null) // Используем класс, который мы обсуждали
+
+            val vehicleDialog = VehicleInputDialog(currentStage, null)
             val resultVehicle = vehicleDialog.showAndWaitWithResult()
             if (resultVehicle != null) {
                 vehicleForRequest = resultVehicle
@@ -449,7 +408,6 @@ class MainController {
             }
         }
 
-        // --- Формирование Request: Идентично ---
         val request = Request(
             body = listOf(descriptor.name) + (collectedArgs ?: emptyList()),
             vehicle = vehicleForRequest,
@@ -457,7 +415,6 @@ class MainController {
             password = currentCreds.second
         )
 
-        // --- Отправка запроса и обработка ответа: Берем логику из ВТОРОЙ версии (с обновлением карты) ---
         showInfoAlert("Processing", "Sending command '${descriptor.name}' to server...")
         Thread {
             val response = apiClient.sendRequestAndWaitForResponse(request)
@@ -467,14 +424,14 @@ class MainController {
 
                     if (response.responseText.contains("Authentication failed", ignoreCase = true)) {
                         apiClient.clearCurrentUserCredentials()
-                        // refreshUIState() // refreshUIState будет вызван из mainApp.onLogout
+
                         mainApp.onLogout(currentStage)
                     } else if (!response.responseText.lowercase().startsWith("error")) {
                         val commandsThatModifyData = setOf(
-                            "add", "add_if_max", "add_if_min", "update_id", "update", // Добавил "update"
+                            "add", "add_if_max", "add_if_min", "update_id", "update",
                             "remove_by_id", "remove_first", "remove_any_by_engine_power", "clear",
-                            "remove_greater", "remove_lower" // Добавил из первой версии
-                            // execute_script обрабатывается отдельно
+                            "remove_greater", "remove_lower"
+
                         )
                         val commandNameLower = descriptor.name.lowercase()
 
@@ -501,15 +458,13 @@ class MainController {
         }.start()
     }
 
-
-    // --- Методы showArgumentInputDialog и showDialogValidationError: Копируем из ПЕРВОЙ версии ---
     private fun showArgumentInputDialog(commandName: String, argumentsToAskFor: List<common.CommandArgument>): List<String>? {
         if (argumentsToAskFor.isEmpty()) {
             return emptyList()
         }
 
         val dialog = Dialog<List<String>>()
-        dialog.initOwner(currentStage) // Привязка к currentStage
+        dialog.initOwner(currentStage)
         dialog.title = "Input for $commandName"
         dialog.headerText = "Please enter arguments for command: $commandName"
 
@@ -542,7 +497,7 @@ class MainController {
                 for ((i, textField) in inputFields.withIndex()) {
                     val argDesc = argumentsToAskFor[i]
                     val value = textField.text.trim()
-                    if (value.isEmpty() && !argDesc.isOptional) { // !isOptional важно, если мы решим запрашивать опциональные
+                    if (value.isEmpty() && !argDesc.isOptional) {
                         showDialogValidationError("Argument '${argDesc.name}' is required and cannot be empty.", dialog)
                         return@setResultConverter null
                     }
@@ -559,7 +514,7 @@ class MainController {
                                 return@setResultConverter null
                             }
                         }
-                        common.ArgumentType.STRING, common.ArgumentType.NO_ARGS -> { /* NO_ARGS сюда не попадут из-за фильтра */ }
+                        common.ArgumentType.STRING, common.ArgumentType.NO_ARGS -> {  }
                     }
                     enteredValues.add(value)
                 }

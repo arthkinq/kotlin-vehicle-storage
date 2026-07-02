@@ -1,36 +1,68 @@
 # Vehicle Manager (Client-Server Application)
 
-A multi-user, TCP-based console application for managing a collection of vehicle objects stored in a PostgreSQL database. This project was developed as part of the university curriculum at ITMO University, demonstrating core backend development principles.
+![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
+![JavaFX](https://img.shields.io/badge/javafx-%23FF0000.svg?style=for-the-badge&logo=java&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/postgresql-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Gradle](https://img.shields.io/badge/Gradle-02303A.svg?style=for-the-badge&logo=Gradle&logoColor=white)
+
+A multi-user, TCP-based application for managing a collection of vehicle objects stored in a PostgreSQL database. The project features a robust multi-threaded server and a rich **JavaFX Graphical User Interface (GUI)** with interactive map visualization.
+
+Developed as part of the university curriculum at ITMO University to demonstrate core backend development, concurrent programming, and GUI design principles.
 
 ## Key Features
 
-*   **Multi-User Environment:** Supports multiple clients connecting to a central server simultaneously.
-*   **User Authentication:** Secure user registration and login system with password hashing.
-*   **Rich Command Set:** Server-side logic processes 15+ commands for full CRUD (Create, Read, Update, Delete) functionality, including complex sorting and filtering.
-*   **Reliable Data Transfer:** Uses JSON for structured data serialization and deserialization between the client and server.
-*   **Database Integration:** Connects to a PostgreSQL database to persist and manage all application data.
+*   **Rich Graphical Interface (GUI):** Built with JavaFX, featuring data tables, interactive command menus, and real-time alerts.
+*   **Interactive Map Visualization:** Real-time 2D rendering of all vehicles on a coordinate plane, with dynamic updates and animations when vehicles are added or modified.
+*   **Multi-User Environment:** Supports multiple clients connecting to a central server simultaneously via TCP/IP sockets.
+*   **User Authentication:** Secure user registration, login system, and access control (password hashing implemented).
+*   **Comprehensive Command Set:** Supports 15+ commands for full CRUD operations, complex sorting, and filtering of the vehicle collection.
+*   **Reliable Data Transfer:** Uses JSON/Serialization for structured data exchange between the client and server.
+*   **Database Integration:** Seamlessly connects to a PostgreSQL database for persistent storage of users and vehicles.
 
 ## Technologies Used
 
 *   **Language:** Kotlin
+*   **GUI Framework:** JavaFX
 *   **Database:** PostgreSQL
-*   **Networking:** TCP/IP Sockets
-*   **Data Format:** JSON
+*   **Networking:** TCP/IP Sockets (NIO)
 *   **Build Tool:** Gradle
-*   **Version Control:** Git
 
 ## How To Run
 
-**Prerequisites:**
-*   Java 11+ | Kotlin 1.6+
-*   PostgreSQL 12+
+### Prerequisites
+*   Java 11+ / Kotlin 1.6+ (For client execution)
+*   Docker & Docker Compose (For server and database)
 *   Gradle
 
-**Server Setup:**
-Configure the database connection details in `/src/main/kotlin/db/DatabaseManager.kt`.
-```kotlin
-private const val DB_HOST = "your_host"
-private const val DB_NAME = "your_db_name"
-private const val DB_USER = "your_user_name"
-private const val DB_PASSWORD = "your_password"
-private const val DB_PORT = 5432
+### 1. Server & Database Setup (via Docker)
+
+The easiest way to run the server and the PostgreSQL database is using Docker Compose.
+
+1. Ensure Docker is installed and running on your machine.
+2. In the root directory of the project, run:
+   ```bash
+   docker-compose up -d --build
+   ```
+   This command will automatically:
+   * Pull the PostgreSQL image and configure the database (`proga`).
+   * Build the Kotlin server from source.
+   * Start both containers and link them together.
+   
+3. To stop the server and database, run:
+   ```bash
+   docker-compose down
+   ```
+
+### 2. Client Setup
+
+Since the client features a rich graphical interface (JavaFX), it is designed to be run locally on your host machine.
+
+1. Navigate to the `client side` directory.
+2. Ensure the server IP and PORT are correctly set in the client connection settings (default connects to `localhost:8888` which is exposed by Docker).
+3. Build and run the JavaFX client via Gradle:
+   ```bash
+   ./gradlew run
+   ```
+
+## License
+This project is for educational purposes.

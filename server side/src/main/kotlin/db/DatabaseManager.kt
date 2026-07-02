@@ -5,22 +5,16 @@ import java.sql.DriverManager
 import java.sql.SQLException
 import java.util.logging.Logger
 
-/* Будет хранить информацимю о БД, менять ее, создавать, хранить юзеров */
 object DatabaseManager {
-//    private const val DB_HOST = "pg"
-//    private const val DB_NAME = "studs"
-//    private const val DB_USER = "s476011"
-//    private const val DB_PASSWORD = "Aqe0lCiTfTkfwHNt"
-//    private const val DB_PORT = 5432
 
-    private const val DB_HOST = "localhost"
-    private const val DB_NAME = "proga"
-    private const val DB_USER = "postgres"
-    private const val DB_PASSWORD = "test"
-    private const val DB_PORT = 5432
+    private val DB_HOST = System.getenv("DB_HOST") ?: "localhost"
+    private val DB_NAME = System.getenv("DB_NAME") ?: "proga"
+    private val DB_USER = System.getenv("DB_USER") ?: "postgres"
+    private val DB_PASSWORD = System.getenv("DB_PASSWORD") ?: "test"
+    private val DB_PORT = System.getenv("DB_PORT")?.toIntOrNull() ?: 5432
 
     private val logger = Logger.getLogger(DatabaseManager::class.java.name)
-    private const val DB_URL = "jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
+    private val DB_URL = "jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
     init {
         try {
             Class.forName("org.postgresql.Driver")
@@ -43,11 +37,11 @@ object DatabaseManager {
         }
     }
     private fun initializeDatabase() {
-        /* try с параметрами от котлина */
+
         getConnection().use { conn ->
-            /* connection с try с параметрами */
+
             conn.createStatement().use { stmt ->
-                /* statment с параметрами и траем */
+
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,

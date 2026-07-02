@@ -5,12 +5,9 @@ import utils.PasswordHasher.hashPassword
 import java.sql.SQLException
 import java.util.logging.Logger
 
-
-/* добавление новых пользователей*/
-
 class UserDAO {
     private val logger = Logger.getLogger(this.javaClass.name)
-    /* Функция возвращает объект User или null если объект не добавлен*/
+
     fun addUser(username: String, password: String) : User? {
         val hashedPassword = hashPassword(password)
         val sql = "INSERT INTO users (username, password_hash) VALUES (?, ?)"

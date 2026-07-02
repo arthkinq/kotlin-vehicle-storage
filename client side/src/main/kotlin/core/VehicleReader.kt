@@ -2,7 +2,7 @@ package core
 
 import model.*
 import myio.IOManager
-import kotlin.NoSuchElementException // Уже есть
+import kotlin.NoSuchElementException
 
 class VehicleReader(private var ioManager: IOManager) {
     fun readVehicle(): Vehicle {
@@ -77,7 +77,6 @@ class VehicleReader(private var ioManager: IOManager) {
         }
     }
 
-    // ИСПРАВЛЕННЫЙ МЕТОД
     private fun readOptionalPositiveDouble(prompt: String): Double? {
         while (true) {
             ioManager.outputInline("$prompt (must be > 0, or leave empty if no value): ")
@@ -123,11 +122,9 @@ class VehicleReader(private var ioManager: IOManager) {
             ?: throw IllegalArgumentException("Invalid X coordinate in script: '${data[1]}' (from script line 2)")
         if (x > 806) throw IllegalArgumentException("X coordinate '$x' exceeds maximum 806 (from script line 2)")
 
-
         val y = data[2].toFloatOrNull()
             ?: throw IllegalArgumentException("Invalid Y coordinate in script: '${data[2]}' (from script line 3)")
         if (y > 922f) throw IllegalArgumentException("Y coordinate '$y' exceeds maximum 922.0 (from script line 3)")
-
 
         val enginePower = data[3].toDoubleOrNull()?.takeIf { it > 0 }
             ?: throw IllegalArgumentException("Invalid or non-positive engine power in script: '${data[3]}' (from script line 4)")
@@ -144,11 +141,9 @@ class VehicleReader(private var ioManager: IOManager) {
         val type = VehicleType.entries.firstOrNull { it.name.equals(typeStr, ignoreCase = true) }
             .also { if (typeStr.isNotBlank() && it == null) throw IllegalArgumentException("Invalid VehicleType in script: '$typeStr' (from script line 6)") }
 
-
         val fuelTypeStr = data[6]
         val fuelType = FuelType.entries.firstOrNull { it.name.equals(fuelTypeStr, ignoreCase = true) }
             .also { if (fuelTypeStr.isNotBlank() && it == null) throw IllegalArgumentException("Invalid FuelType in script: '$fuelTypeStr' (from script line 7)") }
-
 
         return Vehicle(
             id = 0,

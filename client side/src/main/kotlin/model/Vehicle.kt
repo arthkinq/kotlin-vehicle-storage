@@ -23,29 +23,19 @@ data class Vehicle(
         return this.id.compareTo(other.id)
     }
 
-    /*class ByEnginePowerComporator : Comparator<Vehicle> {
-        override fun compare(o1: Vehicle?, o2: Vehicle?): Int {
-            return when {
-                o1 == null && o2 == null -> 0
-                o1 == null -> -1
-                o2 == null -> 1
-                else -> o1.enginePower.compareTo(o2.enginePower)
-            }
-        }
-    }*/
     override fun toString(): String {
         return "Vehicle(id=$id, name='$name', coordinates=$coordinates, creationDate=$creationDate, " +
                 "enginePower=$enginePower, distanceTravelled=$distanceTravelled, type=$type, fuelType=$fuelType)"
     }
 
     override fun equals(other: Any?): Boolean {
-        if (this === other) return true // Проверка на ссылочное равенство
-        if (other !is Vehicle) return false // Проверка на тип
-        return this.id == other.id // Сравнение по id
+        if (this === other) return true
+        if (other !is Vehicle) return false
+        return this.id == other.id
     }
 
     override fun hashCode(): Int {
-        return id.hashCode() // Хэш-код на основе id
+        return id.hashCode()
     }
     fun getCoordinateX() : Int {
         return coordinates.x
